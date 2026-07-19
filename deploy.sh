@@ -1,11 +1,12 @@
 #!/bin/bash
-# xqecz-all 一键部署脚本
+# xqecz-all 一键部署脚本（宝塔版）
 # 用法: ./deploy.sh
 
 set -e
 
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
-SERVICE_NAME="xqecz"
+PID_FILE="$SCRIPT_DIR/dist/logs/server.pid"
+LOG_FILE="$SCRIPT_DIR/dist/logs/server.log"
 
 echo "=== xqecz-all 一键部署 ==="
 
@@ -28,17 +29,7 @@ git config pull.rebase false
 git pull
 echo "✓ 代码已更新"
 
-# 2. 安装 systemd 服务（首次）
-if [ ! -f "/etc/systemd/system/${SERVICE_NAME}.service" ]; then
-    echo ""
-    echo "=== 安装 systemd 服务 ==="
-    cp xqecz.service /etc/systemd/system/${SERVICE_NAME}.service
-    systemctl daemon-reload
-    systemctl enable ${SERVICE_NAME}
-    echo "✓ 服务已安装并启用"
-fi
-
-# 3. 构建前端
+# 2. 构建前端
 echo ""
 echo "=== 2. 构建前端 ==="
 cd frontend
@@ -51,29 +42,48 @@ npm run build
 cd ..
 echo "✓ 前端构建完成"
 
-# 4. 构建后端
+# 3. 构建后端
 echo ""
 echo "=== 3. 构建后端 ==="
 go mod download
 CGO_ENABLED=0 go build -ldflags="-s -w" -o dist/server ./cmd/server
 echo "✓ 后端构建完成"
 
-# 5. 复制前端产物
-mkdir -p dist/frontend
+# 4. 复制前端产物
+mkdir -p dist/frontend dist/logs
 rm -rf dist/frontend/dist
 cp -r frontend/dist dist/frontend/
 
-# 6. 重启服务
+# 5. 停止旧服务
 echo ""
 echo "=== 4. 重启服务 ==="
-systemctl restart ${SERVICE_NAME}
+if [ -f "$PID_FILE" ]; then
+    OLD_PID=$(cat "$PID_FILE")
+    if kill -0 "$OLD_PID" 2>/dev/null; then
+        kill "$OLD_PID" 2>/dev/null
+        sleep 2
+        kill -9 "$OLD_PID" 2>/dev/null
+    fi
+    rm -f "$PID_FILE"
+fi
+
+# 6. 启动新服务（带自重启）
+nohup bash -c '
+while true; do
+    ./server 2>&1
+    echo "[$(date)] 服务异常退出，3秒后重启..." >> logs/server.log
+    sleep 3
+done
+' >> "$LOG_FILE" 2>&1 &
+echo $! > "$PID_FILE"
+
 sleep 2
 
-if systemctl is-active --quiet ${SERVICE_NAME}; then
-    echo "✓ 服务已启动"
+if kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
+    echo "✓ 服务已启动 (PID: $(cat "$PID_FILE"))"
 else
     echo "✗ 服务启动失败"
-    journalctl -u ${SERVICE_NAME} --no-pager -n 20
+    tail -20 "$LOG_FILE"
     exit 1
 fi
 
@@ -81,6 +91,5 @@ echo ""
 echo "=== 部署完成 ==="
 echo ""
 echo "常用命令："
-echo "  systemctl status xqecz    # 查看状态"
-echo "  systemctl restart xqecz   # 重启服务"
-echo "  journalctl -u xqecz -f    # 查看日志"
+echo "  tail -f dist/logs/server.log  # 查看日志"
+echo "  kill \$(cat dist/logs/server.pid)  # 停止服务"
