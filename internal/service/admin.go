@@ -429,13 +429,12 @@ func (s *AdminService) RegenerateThumbnail(contentID uint64) (map[string]interfa
 func (s *AdminService) RegenerateAllThumbnails() (int64, error) {
 	cfg := config.Get()
 
-	// 查询需要生成缩略图的内容
+	// 查询需要生成缩略图的内容（所有有文件的图片和视频）
 	var contents []repository.Content
 	err := s.contentRepo.GetDB().Select(&contents,
 		`SELECT id, type, file_path, thumb_path FROM contents
 		WHERE deleted_at IS NULL
 		AND file_path != ''
-		AND (thumb_path IS NULL OR thumb_path = '')
 		AND (type = 'image' OR type = 'video')`,
 	)
 	if err != nil {
@@ -456,6 +455,11 @@ func (s *AdminService) RegenerateAllThumbnails() (int64, error) {
 			}
 			if filePath == "" {
 				continue
+			}
+
+			// 删除旧缩略图
+			if content.ThumbPath.Valid && content.ThumbPath.String != "" {
+				util.DeleteThumbnail(filePath, cfg.Server.ThumbnailDir)
 			}
 
 			originalPath := cfg.Server.UploadDir + "/" + filePath

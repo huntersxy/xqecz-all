@@ -55,8 +55,7 @@ export const useThemeStore = defineStore('theme', () => {
     if (userChosen && savedTheme && validThemes.some((t) => t.key === savedTheme)) {
       currentTheme.value = savedTheme
     } else {
-      const isLargeScreen = window.innerWidth >= 1024
-      currentTheme.value = isLargeScreen ? 'bilibiliStyle' : 'default'
+      currentTheme.value = 'waterfall'
     }
   } catch {
     // Privacy mode or localStorage unavailable

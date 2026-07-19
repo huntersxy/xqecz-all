@@ -554,7 +554,7 @@ onMounted(() => {
         >
           <img
             v-if="item.type !== 'text'"
-            :src="getImageUrl((item as any).img || item.thumb)"
+                :src="getImageUrl(item.thumb)"
             :alt="item.title"
             loading="lazy"
           />
@@ -609,7 +609,7 @@ onMounted(() => {
           <template v-if="item.type !== 'text'">
             <div class="wf-card-media">
               <img
-                :src="getImageUrl(item.img || item.thumb)"
+                :src="getImageUrl(item.thumb)"
                 :alt="item.title"
                 loading="lazy"
                 decoding="async"

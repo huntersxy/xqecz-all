@@ -58,7 +58,7 @@ func GenerateVideoThumbnail(videoPath, filename, thumbnailDir string) (string, e
 	defer func() { <-ffmpegSem }()
 
 	ffmpeg := GetFFmpegPath()
-	vf := `select=eq(n\,9),crop=w='if(gte(in_w/in_h,4/3),in_h*4/3,in_w)':h='if(gte(in_w/in_h,4/3),in_h,in_w*3/4)':x='if(gte(in_w/in_h,4/3),(in_w-in_h*4/3)/2,0)':y='if(gte(in_w/in_h,4/3),0,min(in_h*0.08,in_h-in_w*3/4))'`
+	vf := `select=eq(n\,9),scale=800:-1`
 
 	cmd := exec.Command(ffmpeg, "-i", videoPath, "-vf", vf, "-vframes", "1", "-c:v", "libwebp", "-quality", "60", "-threads", "1", "-y", thumbPath)
 	if err := cmd.Run(); err != nil {
@@ -84,7 +84,7 @@ func GenerateImageThumbnail(originalPath, filename, thumbnailDir string) (string
 	defer func() { <-ffmpegSem }()
 
 	ffmpeg := GetFFmpegPath()
-	vf := `crop=w='if(gte(in_w/in_h,4/3),in_h*4/3,in_w)':h='if(gte(in_w/in_h,4/3),in_h,in_w*3/4)':x='if(gte(in_w/in_h,4/3),(in_w-in_h*4/3)/2,0)':y='if(gte(in_w/in_h,4/3),0,min(in_h*0.08,in_h-in_w*3/4))',scale=800:-1`
+	vf := `scale=800:-1`
 
 	cmd := exec.Command(ffmpeg, "-i", originalPath, "-vf", vf, "-threads", "1", "-q:v", "8", "-y", thumbPath)
 	if err := cmd.Run(); err != nil {
