@@ -14,6 +14,7 @@ echo "输出目录: $DIST_DIR"
 echo ""
 echo "=== 拉取最新代码 ==="
 cd "$APP_DIR"
+git config pull.rebase false
 git pull
 echo "✓ 代码已更新"
 
