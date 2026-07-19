@@ -4,7 +4,8 @@
 
 set -e
 
-APP_DIR=$(cd "$(dirname "$0")" && pwd)
+SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
+APP_DIR="$SCRIPT_DIR/dist"
 PID_FILE="$APP_DIR/logs/server.pid"
 LOG_FILE="$APP_DIR/logs/server.log"
 
