@@ -10,6 +10,13 @@ DIST_DIR="$APP_DIR/dist"
 echo "=== xqecz-all 构建脚本 ==="
 echo "输出目录: $DIST_DIR"
 
+# 拉取最新代码
+echo ""
+echo "=== 拉取最新代码 ==="
+cd "$APP_DIR"
+git pull
+echo "✓ 代码已更新"
+
 # 清理并创建 dist 目录
 rm -rf "$DIST_DIR"
 mkdir -p "$DIST_DIR"
