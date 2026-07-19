@@ -2,6 +2,12 @@
 # xqecz-all 无 Docker 启动脚本
 # 用法: ./start.sh [dev|prod]
 
+# 加载环境变量（nohup 时需要）
+source /etc/profile 2>/dev/null || true
+source ~/.bashrc 2>/dev/null || true
+source ~/.nvm/nvm.sh 2>/dev/null || true
+export PATH=$PATH:/usr/local/go/bin:$HOME/go/bin:/usr/local/bin:/usr/local/node/bin:$HOME/.nvm/versions/node/*/bin
+
 set -e
 
 MODE=${1:-prod}
