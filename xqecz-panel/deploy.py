@@ -29,6 +29,26 @@ class DeployManager:
         )
         return result
 
+    def _run_with_output(self, cmd: str, cwd: Optional[Path] = None) -> tuple[bool, str]:
+        """执行命令并返回详细输出"""
+        if cwd is None:
+            cwd = self.project_dir
+        try:
+            result = subprocess.run(
+                cmd, shell=True, cwd=cwd,
+                capture_output=True, text=True, timeout=600
+            )
+            output = ""
+            if result.stdout:
+                output += result.stdout
+            if result.stderr:
+                output += result.stderr
+            return result.returncode == 0, output.strip()
+        except subprocess.TimeoutExpired:
+            return False, "命令执行超时"
+        except Exception as e:
+            return False, str(e)
+
     def _load_env(self) -> dict:
         """加载环境变量"""
         env = os.environ.copy()
@@ -78,10 +98,10 @@ class DeployManager:
     def git_pull(self) -> tuple[bool, str]:
         """拉取代码"""
         self._run("git config pull.rebase false")
-        result = self._run("git pull")
-        if result.returncode != 0:
-            return False, f"git pull 失败: {result.stderr}"
-        return True, result.stdout.strip()
+        success, output = self._run_with_output("git pull")
+        if not success:
+            return False, f"git pull 失败:\n{output}"
+        return True, f"git pull 成功:\n{output}"
 
     def build_frontend(self) -> tuple[bool, str]:
         """构建前端"""
@@ -89,29 +109,39 @@ class DeployManager:
 
         # 检查是否需要安装依赖
         if not (frontend_dir / "node_modules").exists():
-            result = self._run("npm install", cwd=frontend_dir)
-            if result.returncode != 0:
-                return False, f"npm install 失败: {result.stderr}"
+            success, output = self._run_with_output("npm install", cwd=frontend_dir)
+            if not success:
+                return False, f"npm install 失败:\n{output}"
 
-        result = self._run("npm run build", cwd=frontend_dir)
-        if result.returncode != 0:
-            return False, f"前端构建失败: {result.stderr}"
-        return True, "前端构建完成"
+        success, output = self._run_with_output("npm run build", cwd=frontend_dir)
+        if not success:
+            return False, f"前端构建失败:\n{output}"
+        return True, f"前端构建完成:\n{output}"
 
     def build_backend(self) -> tuple[bool, str]:
         """构建后端"""
         env = self._load_env()
         self._run("go mod download")
 
-        result = subprocess.run(
-            "CGO_ENABLED=0 go build -ldflags='-s -w' -o dist/server ./cmd/server",
-            shell=True, cwd=self.project_dir,
-            capture_output=True, text=True, timeout=300,
-            env=env
-        )
-        if result.returncode != 0:
-            return False, f"后端构建失败: {result.stderr}"
-        return True, "后端构建完成"
+        try:
+            result = subprocess.run(
+                "CGO_ENABLED=0 go build -ldflags='-s -w' -o dist/server ./cmd/server",
+                shell=True, cwd=self.project_dir,
+                capture_output=True, text=True, timeout=300,
+                env=env
+            )
+            output = ""
+            if result.stdout:
+                output += result.stdout
+            if result.stderr:
+                output += result.stderr
+            if result.returncode != 0:
+                return False, f"后端构建失败:\n{output}"
+            return True, f"后端构建完成:\n{output}"
+        except subprocess.TimeoutExpired:
+            return False, "后端构建超时"
+        except Exception as e:
+            return False, f"后端构建异常: {e}"
 
     def copy_frontend(self) -> tuple[bool, str]:
         """复制前端产物"""

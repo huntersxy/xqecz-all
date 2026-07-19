@@ -4,11 +4,13 @@ xqecz-all 部署管理 HTTP API 服务器
 
 import json
 import secrets
+import subprocess
+import time
 from pathlib import Path
 from typing import Optional
 
 from fastapi import FastAPI, Header, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 import uvicorn
 
@@ -64,6 +66,26 @@ def verify_api_key(x_api_key: Optional[str] = Header(None)):
         raise HTTPException(status_code=401, detail="无效的 API Key")
 
 
+def stream_output(cmd: str, cwd: Optional[str] = None):
+    """流式输出命令执行结果"""
+    try:
+        process = subprocess.Popen(
+            cmd, shell=True, cwd=cwd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1
+        )
+
+        for line in iter(process.stdout.readline, ''):
+            yield line
+
+        process.wait()
+        yield f"\n[EXIT] Process exited with code {process.returncode}\n"
+    except Exception as e:
+        yield f"\n[ERROR] {str(e)}\n"
+
+
 @app.get("/")
 async def root():
     """API 信息"""
@@ -85,18 +107,59 @@ async def root():
 
 @app.post("/api/deploy")
 async def deploy(x_api_key: Optional[str] = Header(None)):
-    """一键部署"""
+    """一键部署（流式输出）"""
     verify_api_key(x_api_key)
-    success, message = deploy_manager.deploy()
-    return Response(success=success, message=message)
+
+    def run_deploy():
+        project_dir = get_project_dir()
+        yield "[STEP 1] Pulling latest code...\n"
+        yield from stream_output("git config pull.rebase false && git pull", cwd=project_dir)
+
+        yield "\n[STEP 2] Building frontend...\n"
+        yield from stream_output("cd frontend && npm run build", cwd=project_dir)
+
+        yield "\n[STEP 3] Building backend...\n"
+        yield from stream_output("go mod download && CGO_ENABLED=0 go build -ldflags='-s -w' -o dist/server ./cmd/server", cwd=project_dir)
+
+        yield "\n[STEP 4] Copying frontend files...\n"
+        yield from stream_output("mkdir -p dist/frontend && rm -rf dist/frontend/dist && cp -r frontend/dist dist/frontend/", cwd=project_dir)
+
+        yield "\n[STEP 5] Restarting service...\n"
+        # 获取 PID
+        pid_file = Path(project_dir) / "dist" / "logs" / "server.pid"
+        if pid_file.exists():
+            pid = pid_file.read_text().strip()
+            yield f"Sending SIGINT to PID {pid}...\n"
+            yield from stream_output(f"kill -INT {pid} 2>/dev/null || true", cwd=project_dir)
+        else:
+            yield "Starting new service...\n"
+            yield from stream_output("cd dist && nohup ./server >> logs/server.log 2>&1 & echo $! > logs/server.pid", cwd=project_dir)
+
+        yield "\n[DONE] Deploy completed!\n"
+
+    return StreamingResponse(run_deploy(), media_type="text/plain")
 
 
 @app.post("/api/build")
 async def build(x_api_key: Optional[str] = Header(None)):
-    """仅构建"""
+    """仅构建（流式输出）"""
     verify_api_key(x_api_key)
-    success, message = deploy_manager.build()
-    return Response(success=success, message=message)
+
+    def run_build():
+        project_dir = get_project_dir()
+
+        yield "[STEP 1] Building frontend...\n"
+        yield from stream_output("cd frontend && npm run build", cwd=project_dir)
+
+        yield "\n[STEP 2] Building backend...\n"
+        yield from stream_output("go mod download && CGO_ENABLED=0 go build -ldflags='-s -w' -o dist/server ./cmd/server", cwd=project_dir)
+
+        yield "\n[STEP 3] Copying frontend files...\n"
+        yield from stream_output("mkdir -p dist/frontend && rm -rf dist/frontend/dist && cp -r frontend/dist dist/frontend/", cwd=project_dir)
+
+        yield "\n[DONE] Build completed!\n"
+
+    return StreamingResponse(run_build(), media_type="text/plain")
 
 
 @app.post("/api/restart")

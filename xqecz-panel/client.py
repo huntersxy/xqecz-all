@@ -38,7 +38,7 @@ def get_api_key() -> str:
     return config.get("api_key", "")
 
 
-def api_request(method: str, path: str, **kwargs) -> dict:
+def api_request(method: str, path: str, stream: bool = False, **kwargs):
     """发送 API 请求"""
     remote = get_remote()
     api_key = get_api_key()
@@ -48,17 +48,24 @@ def api_request(method: str, path: str, **kwargs) -> dict:
 
     try:
         with httpx.Client(timeout=600) as client:
-            response = client.request(method, url, headers=headers, **kwargs)
-            response.raise_for_status()
-            return response.json()
+            if stream:
+                with client.stream(method, url, headers=headers, **kwargs) as response:
+                    response.raise_for_status()
+                    for line in response.iter_lines():
+                        if line:
+                            click.echo(line)
+            else:
+                response = client.request(method, url, headers=headers, **kwargs)
+                response.raise_for_status()
+                return response.json()
     except httpx.ConnectError:
-        click.echo(f"错误: 无法连接到 {remote}", err=True)
+        click.echo(f"Error: Cannot connect to {remote}", err=True)
         sys.exit(1)
     except httpx.HTTPStatusError as e:
-        click.echo(f"错误: {e.response.status_code} - {e.response.text}", err=True)
+        click.echo(f"Error: {e.response.status_code} - {e.response.text}", err=True)
         sys.exit(1)
     except Exception as e:
-        click.echo(f"错误: {e}", err=True)
+        click.echo(f"Error: {e}", err=True)
         sys.exit(1)
 
 
@@ -81,27 +88,21 @@ def cli(remote: Optional[str], api_key: Optional[str]):
 @cli.command()
 def deploy():
     """一键部署"""
-    click.echo("正在部署...")
-    result = api_request("POST", "/api/deploy")
-    click.echo(result.get("message", ""))
-    if not result.get("success"):
-        sys.exit(1)
+    click.echo("Deploying...")
+    api_request("POST", "/api/deploy", stream=True)
 
 
 @cli.command()
 def build():
     """仅构建"""
-    click.echo("正在构建...")
-    result = api_request("POST", "/api/build")
-    click.echo(result.get("message", ""))
-    if not result.get("success"):
-        sys.exit(1)
+    click.echo("Building...")
+    api_request("POST", "/api/build", stream=True)
 
 
 @cli.command()
 def restart():
     """重启服务"""
-    click.echo("正在重启...")
+    click.echo("Restarting...")
     result = api_request("POST", "/api/restart")
     click.echo(result.get("message", ""))
 
@@ -109,7 +110,7 @@ def restart():
 @cli.command()
 def start():
     """启动服务"""
-    click.echo("正在启动...")
+    click.echo("Starting...")
     result = api_request("POST", "/api/start")
     click.echo(result.get("message", ""))
 
@@ -117,7 +118,7 @@ def start():
 @cli.command()
 def stop():
     """停止服务"""
-    click.echo("正在停止...")
+    click.echo("Stopping...")
     result = api_request("POST", "/api/stop")
     click.echo(result.get("message", ""))
 
