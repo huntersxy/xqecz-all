@@ -3,7 +3,11 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/exec"
+	"os/signal"
 	"path/filepath"
+	"runtime/debug"
+	"syscall"
 	"time"
 
 	"xqecz-all/internal/config"
@@ -13,14 +17,76 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/compress"
-	"github.com/gofiber/fiber/v2/middleware/recover"
+	fiberRecover "github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
+var appInstance *fiber.App
+
 func main() {
+	// 捕获 panic 并自重启
+	defer func() {
+		if r := recover(); r != nil {
+			log.Error().Interface("panic", r).Bytes("stack", debug.Stack()).Msg("程序崩溃，3秒后重启...")
+			time.Sleep(3 * time.Second)
+			restartSelf()
+		}
+	}()
+
+	// 监听信号（SIGINT/SIGTERM 触发重启）
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		sig := <-sigChan
+		log.Info().Str("signal", sig.String()).Msg("收到重启信号，正在重启...")
+		time.Sleep(500 * time.Millisecond)
+		restartSelf()
+	}()
+
+	runServer()
+}
+
+// restartSelf 重启自身进程
+func restartSelf() {
+	// 优雅关闭
+	if appInstance != nil {
+		_ = appInstance.Shutdown()
+	}
+
+	exe, err := os.Executable()
+	if err != nil {
+		log.Fatal().Err(err).Msg("无法获取可执行文件路径")
+	}
+	cmd := exec.Command(exe)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Dir, _ = os.Getwd()
+	if err := cmd.Start(); err != nil {
+		log.Fatal().Err(err).Msg("重启失败")
+	}
+	os.Exit(0)
+}
+
+// SendRestartSignal 发送重启信号给运行中的服务
+func SendRestartSignal() error {
+	pidFile := "logs/server.pid"
+	pidData, err := os.ReadFile(pidFile)
+	if err != nil {
+		return fmt.Errorf("无法读取PID文件: %w", err)
+	}
+	var pid int
+	fmt.Sscanf(string(pidData), "%d", &pid)
+	process, err := os.FindProcess(pid)
+	if err != nil {
+		return fmt.Errorf("找不到进程: %w", err)
+	}
+	return process.Signal(syscall.SIGINT)
+}
+
+func runServer() {
 	// 配置日志
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
@@ -88,7 +154,7 @@ func main() {
 	}
 
 	// 创建Fiber应用
-	app := fiber.New(fiber.Config{
+	appInstance = fiber.New(fiber.Config{
 		AppName:      "xqecz-all",
 		BodyLimit:    int(cfg.Server.MaxUploadSize),
 		ReadTimeout:  120 * time.Second,
@@ -97,18 +163,18 @@ func main() {
 	})
 
 	// 全局中间件
-	app.Use(recover.New())
-	app.Use(compress.New())
-	app.Use(middleware.CORS(cfg.Server.AllowedOrigins))
-	app.Use(middleware.ErrorHandler())
+	appInstance.Use(fiberRecover.New())
+	appInstance.Use(compress.New())
+	appInstance.Use(middleware.CORS(cfg.Server.AllowedOrigins))
+	appInstance.Use(middleware.ErrorHandler())
 
 	// 静态文件服务
-	app.Static("/uploads", cfg.Server.UploadDir)
-	app.Static("/thumbnails", cfg.Server.ThumbnailDir)
-	app.Static("/images", cfg.Server.ImagesDir)
+	appInstance.Static("/uploads", cfg.Server.UploadDir)
+	appInstance.Static("/thumbnails", cfg.Server.ThumbnailDir)
+	appInstance.Static("/images", cfg.Server.ImagesDir)
 
 	// 前端静态文件
-	app.Static("/", "./frontend/dist")
+	appInstance.Static("/", "./frontend/dist")
 
 	// 创建处理器实例
 	authHandler := handler.NewAuthHandler(db)
@@ -120,7 +186,7 @@ func main() {
 	apiKeyHandler := handler.NewApiKeyHandler(db)
 
 	// API路由
-	api := app.Group("/api")
+	api := appInstance.Group("/api")
 
 	// 认证路由（带限流）
 	auth := api.Group("/auth")
@@ -237,7 +303,9 @@ func main() {
 	// 启动服务器
 	port := fmt.Sprintf(":%d", cfg.Server.Port)
 	log.Info().Str("port", port).Msg("Starting server")
-	if err := app.Listen(port); err != nil {
-		log.Fatal().Err(err).Msg("Failed to start server")
+	if err := appInstance.Listen(port); err != nil {
+		log.Error().Err(err).Msg("服务异常退出，3秒后重启...")
+		time.Sleep(3 * time.Second)
+		restartSelf()
 	}
 }

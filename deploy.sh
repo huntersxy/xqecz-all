@@ -1,12 +1,10 @@
 #!/bin/bash
-# xqecz-all 一键部署脚本（宝塔版）
+# xqecz-all 一键部署脚本
 # 用法: ./deploy.sh
 
 set -e
 
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
-PID_FILE="$SCRIPT_DIR/dist/logs/server.pid"
-LOG_FILE="$SCRIPT_DIR/dist/logs/server.log"
 
 echo "=== xqecz-all 一键部署 ==="
 
@@ -54,42 +52,34 @@ mkdir -p dist/frontend dist/logs
 rm -rf dist/frontend/dist
 cp -r frontend/dist dist/frontend/
 
-# 5. 停止旧服务
+# 5. 发送重启信号
 echo ""
 echo "=== 4. 重启服务 ==="
-if [ -f "$PID_FILE" ]; then
-    OLD_PID=$(cat "$PID_FILE")
-    if kill -0 "$OLD_PID" 2>/dev/null; then
-        kill "$OLD_PID" 2>/dev/null
+cd dist
+
+if [ -f "logs/server.pid" ]; then
+    PID=$(cat logs/server.pid)
+    if kill -0 "$PID" 2>/dev/null; then
+        echo "发送重启信号给 PID: $PID"
+        kill -USR1 "$PID"
         sleep 2
-        kill -9 "$OLD_PID" 2>/dev/null
+        if kill -0 "$PID" 2>/dev/null; then
+            echo "✓ 服务已重启"
+        else
+            echo "服务正在重启..."
+        fi
+    else
+        echo "服务未运行，启动新服务"
+        nohup ./server >> logs/server.log 2>&1 &
+        echo $! > logs/server.pid
     fi
-    rm -f "$PID_FILE"
-fi
-
-# 6. 启动新服务（带自重启）
-nohup bash -c '
-while true; do
-    ./server 2>&1
-    echo "[$(date)] 服务异常退出，3秒后重启..." >> logs/server.log
-    sleep 3
-done
-' >> "$LOG_FILE" 2>&1 &
-echo $! > "$PID_FILE"
-
-sleep 2
-
-if kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
-    echo "✓ 服务已启动 (PID: $(cat "$PID_FILE"))"
 else
-    echo "✗ 服务启动失败"
-    tail -20 "$LOG_FILE"
-    exit 1
+    echo "启动新服务"
+    nohup ./server >> logs/server.log 2>&1 &
+    echo $! > logs/server.pid
 fi
 
+cd ..
 echo ""
 echo "=== 部署完成 ==="
-echo ""
-echo "常用命令："
-echo "  tail -f dist/logs/server.log  # 查看日志"
-echo "  kill \$(cat dist/logs/server.pid)  # 停止服务"
+echo "查看日志: tail -f dist/logs/server.log"
