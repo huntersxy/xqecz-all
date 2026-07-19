@@ -2,6 +2,7 @@ package service
 
 import (
 	"fmt"
+	"time"
 
 	"xqecz-all/internal/repository"
 	"xqecz-all/internal/util"
@@ -11,15 +12,15 @@ import (
 
 // Claim 认领数据模型
 type Claim struct {
-	ID         uint64  `db:"id" json:"id"`
-	ContentID  uint64  `db:"content_id" json:"content_id"`
-	UserID     uint64  `db:"user_id" json:"user_id"`
-	Reason     string  `db:"reason" json:"reason"`
-	Status     string  `db:"status" json:"status"`
-	ApprovedBy *uint64 `db:"approved_by" json:"approved_by,omitempty"`
-	Remark     string  `db:"remark" json:"remark"`
-	CreatedAt  int64   `db:"created_at" json:"created_at"`
-	UpdatedAt  int64   `db:"updated_at" json:"updated_at"`
+	ID         uint64     `db:"id" json:"id"`
+	ContentID  uint64     `db:"content_id" json:"content_id"`
+	UserID     uint64     `db:"user_id" json:"user_id"`
+	Reason     string     `db:"reason" json:"reason"`
+	Status     string     `db:"status" json:"status"`
+	ApprovedBy *uint64    `db:"approved_by" json:"approved_by,omitempty"`
+	Remark     string     `db:"remark" json:"remark"`
+	CreatedAt  time.Time  `db:"created_at" json:"created_at"`
+	UpdatedAt  time.Time  `db:"updated_at" json:"updated_at"`
 }
 
 // ClaimStatus 认领状态常量
@@ -140,7 +141,7 @@ func (s *ClaimService) GetClaimList(status string, contentID string, page, pageS
 			"id":         claim.ID,
 			"reason":     claim.Reason,
 			"status":     claim.Status,
-			"created_at": claim.CreatedAt,
+			"created_at": claim.CreatedAt.Unix(),
 		}
 
 		if user, ok := usersMap[claim.UserID]; ok {

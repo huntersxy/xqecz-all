@@ -57,7 +57,9 @@ func (h *ApiKeyHandler) ListApiKeys(c *fiber.Ctx) error {
 		return util.InternalError(c, err.Error())
 	}
 
-	return util.Success(c, result)
+	return util.Success(c, fiber.Map{
+		"list": result,
+	})
 }
 
 // UpdateApiKey 更新API密钥

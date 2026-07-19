@@ -259,9 +259,16 @@ function getCardStyle(item: Content) {
 function openViewer(content: Content) {
   if (content.type === 'image' && content.img) {
     viewerImages.value = [getImageUrl(content.img)]
-    nextTick(() => {
-      viewerRef.value?.querySelector('img')?.click()
-    })
+    // 延迟触发，确保 DOM 已更新
+    setTimeout(() => {
+      const viewer = viewerRef.value
+      if (viewer) {
+        const imgs = viewer.querySelectorAll('img')
+        if (imgs.length > 0) {
+          imgs[0].click()
+        }
+      }
+    }, 100)
   } else if (content.type === 'link' && content.url) {
     globalThis.open(content.url, '_blank')
   } else if (content.id) {
@@ -457,7 +464,7 @@ onMounted(() => {
 <template>
   <div class="wf-root">
     <!-- Hidden viewer -->
-    <div ref="viewerRef" v-viewer class="hidden">
+    <div ref="viewerRef" v-viewer="{ navbar: false }" class="hidden">
       <img v-for="(src, i) in viewerImages" :key="i" :src="src" />
     </div>
 
