@@ -2,6 +2,8 @@
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import { useUserStore } from './stores/user'
 import { useAdminStore } from './stores/admin'
+import { useThemeStore } from './stores/theme'
+import { getThemesByCategory } from './composables/useThemeRegistry'
 import { Toaster } from 'vue-sonner'
 import logoImg from '@/assets/logo.webp'
 import {
@@ -21,8 +23,18 @@ const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 const admin = useAdminStore()
+const themeStore = useThemeStore()
 const isMobileMenuOpen = ref(false)
 const isMobileUA = ref(false)
+
+const availableThemes = computed(() => {
+  const map = getThemesByCategory()
+  const result: { key: string; name: string }[] = []
+  for (const [, themes] of map) {
+    for (const t of themes) result.push({ key: t.key, name: t.name })
+  }
+  return result
+})
 
 const buildDate = import.meta.env.VITE_BUILD_DATE || new Date().toISOString().split('T')[0]
 const currentYear = new Date().getFullYear()
@@ -39,7 +51,6 @@ const navItems = computed<MenuProps['items']>(() => {
   if (userStore.isLoggedIn) {
     items.push({ key: '/admin', icon: () => h(SettingOutlined), label: '后台管理' })
   }
-  items.push({ key: '/admin?tab=theme', icon: () => h(BgColorsOutlined), label: '主题设置' })
   if (!userStore.isLoggedIn) {
     items.push({ key: '/login', icon: () => h(LoginOutlined), label: '登录' })
   }
@@ -60,12 +71,7 @@ const selectedKeys = computed(() => {
 })
 
 function onNavClick(info: { key: string }) {
-  if (info.key === '/admin?tab=theme') {
-    admin.activeTab = 'theme'
-    router.push('/admin')
-  } else {
-    router.push(info.key)
-  }
+  router.push(info.key)
   isMobileMenuOpen.value = false
 }
 
@@ -99,6 +105,41 @@ onMounted(() => {
       />
 
       <div class="app-header-right">
+        <!-- 主题切换 -->
+        <a-dropdown :trigger="['click']" placement="bottomRight">
+          <a-button type="text" class="app-theme-btn" aria-label="切换主题">
+            <BgColorsOutlined />
+          </a-button>
+          <template #overlay>
+            <div class="app-theme-dropdown">
+              <div class="app-theme-section">
+                <div class="app-theme-label">显示模式</div>
+                <div class="app-theme-options">
+                  <button
+                    :class="['app-theme-option', { active: themeStore.mode === 'light' }]"
+                    @click="themeStore.setMode('light')"
+                  >日间</button>
+                  <button
+                    :class="['app-theme-option', { active: themeStore.mode === 'dark' }]"
+                    @click="themeStore.setMode('dark')"
+                  >暗色</button>
+                </div>
+              </div>
+              <div class="app-theme-section">
+                <div class="app-theme-label">主题风格</div>
+                <div class="app-theme-options">
+                  <button
+                    v-for="theme in availableThemes"
+                    :key="theme.key"
+                    :class="['app-theme-option', { active: themeStore.currentTheme === theme.key }]"
+                    @click="themeStore.setTheme(theme.key)"
+                  >{{ theme.name }}</button>
+                </div>
+              </div>
+            </div>
+          </template>
+        </a-dropdown>
+
         <template v-if="userStore.isLoggedIn">
           <a-dropdown :trigger="['click']">
             <div
@@ -308,6 +349,71 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
+}
+
+.app-theme-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  color: var(--theme-text);
+}
+
+.app-theme-btn:hover {
+  color: var(--theme-primary);
+  background: var(--theme-hover-bg);
+}
+
+.app-theme-dropdown {
+  background: var(--theme-surface);
+  border: 1px solid var(--theme-card-border);
+  border-radius: 8px;
+  padding: 12px;
+  min-width: 200px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.app-theme-section {
+  margin-bottom: 12px;
+}
+
+.app-theme-section:last-child {
+  margin-bottom: 0;
+}
+
+.app-theme-label {
+  font-size: 12px;
+  color: var(--theme-text-secondary);
+  margin-bottom: 8px;
+}
+
+.app-theme-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.app-theme-option {
+  padding: 4px 12px;
+  font-size: 13px;
+  border: 1px solid var(--theme-card-border);
+  border-radius: 16px;
+  background: transparent;
+  color: var(--theme-text);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.app-theme-option:hover {
+  border-color: var(--theme-primary);
+  color: var(--theme-primary);
+}
+
+.app-theme-option.active {
+  background: var(--theme-primary);
+  border-color: var(--theme-primary);
+  color: var(--theme-on-primary);
 }
 
 .app-user-trigger {
