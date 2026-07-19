@@ -4,7 +4,16 @@ import { useUserStore } from './stores/user'
 import { useAdminStore } from './stores/admin'
 import { Toaster } from 'vue-sonner'
 import logoImg from '@/assets/logo.webp'
-import { UserOutlined, LogoutOutlined, HomeOutlined, SettingOutlined, BgColorsOutlined, LoginOutlined, MenuOutlined, CloseOutlined } from '@ant-design/icons-vue'
+import {
+  UserOutlined,
+  LogoutOutlined,
+  HomeOutlined,
+  SettingOutlined,
+  BgColorsOutlined,
+  LoginOutlined,
+  MenuOutlined,
+  CloseOutlined,
+} from '@ant-design/icons-vue'
 import type { MenuProps } from 'ant-design-vue'
 import ErrorBoundary from './components/ErrorBoundary.vue'
 
@@ -26,9 +35,7 @@ function isMobileDevice() {
 }
 
 const navItems = computed<MenuProps['items']>(() => {
-  const items: MenuProps['items'] = [
-    { key: '/', icon: () => h(HomeOutlined), label: '首页' },
-  ]
+  const items: MenuProps['items'] = [{ key: '/', icon: () => h(HomeOutlined), label: '首页' }]
   if (userStore.isLoggedIn) {
     items.push({ key: '/admin', icon: () => h(SettingOutlined), label: '后台管理' })
   }
@@ -72,14 +79,10 @@ onMounted(() => {
   isMobileUA.value = isMobileDevice()
   if (isMobileUA.value) document.body.classList.add('mobile-ua')
 })
-
 </script>
 
 <template>
-  <header
-    class="app-header"
-    role="banner"
-  >
+  <header class="app-header" role="banner">
     <div class="app-header-inner">
       <RouterLink to="/" class="app-logo" @click="isMobileMenuOpen = false" aria-label="返回首页">
         <img :src="logoImg" alt="小泉动漫二创站" class="app-logo-img" />
@@ -98,12 +101,26 @@ onMounted(() => {
       <div class="app-header-right">
         <template v-if="userStore.isLoggedIn">
           <a-dropdown :trigger="['click']">
-            <div class="app-user-trigger" role="button" tabindex="0" aria-label="用户菜单" aria-haspopup="true" @keydown.enter.prevent @keydown.space.prevent>
+            <div
+              class="app-user-trigger"
+              role="button"
+              tabindex="0"
+              aria-label="用户菜单"
+              aria-haspopup="true"
+              @keydown.enter.prevent
+              @keydown.space.prevent
+            >
               <a-avatar size="small" style="background-color: #1677ff">
                 <template #icon><UserOutlined /></template>
               </a-avatar>
               <span class="app-username">{{ userStore.user?.username }}</span>
-              <a-tag v-if="userStore.user?.is_admin" color="red" :bordered="false" style="font-size: 11px; padding: 0 4px; margin-left: 2px">管理员</a-tag>
+              <a-tag
+                v-if="userStore.user?.is_admin"
+                color="red"
+                :bordered="false"
+                style="font-size: 11px; padding: 0 4px; margin-left: 2px"
+                >管理员</a-tag
+              >
             </div>
             <template #overlay>
               <a-menu>
@@ -115,12 +132,25 @@ onMounted(() => {
           </a-dropdown>
         </template>
         <template v-else>
-          <RouterLink to="/login" class="app-login-link" @click="isMobileMenuOpen = false" aria-label="登录">
+          <RouterLink
+            to="/login"
+            class="app-login-link"
+            @click="isMobileMenuOpen = false"
+            aria-label="登录"
+          >
             <LoginOutlined /> 登录
           </RouterLink>
         </template>
 
-        <a-button v-if="!route.path.startsWith('/admin')" class="app-mobile-menu-btn" type="text" @click="isMobileMenuOpen = !isMobileMenuOpen" :aria-label="isMobileMenuOpen ? '关闭菜单' : '打开菜单'" :aria-expanded="isMobileMenuOpen" aria-controls="mobile-menu-drawer">
+        <a-button
+          v-if="!route.path.startsWith('/admin')"
+          class="app-mobile-menu-btn"
+          type="text"
+          @click="isMobileMenuOpen = !isMobileMenuOpen"
+          :aria-label="isMobileMenuOpen ? '关闭菜单' : '打开菜单'"
+          :aria-expanded="isMobileMenuOpen"
+          aria-controls="mobile-menu-drawer"
+        >
           <CloseOutlined v-if="isMobileMenuOpen" />
           <MenuOutlined v-else />
         </a-button>
@@ -141,28 +171,46 @@ onMounted(() => {
   >
     <div class="mobile-drawer-header">
       <span class="mobile-drawer-title">菜单</span>
-      <a-button type="text" size="small" @click="isMobileMenuOpen = false" aria-label="关闭菜单"><CloseOutlined /></a-button>
+      <a-button type="text" size="small" @click="isMobileMenuOpen = false" aria-label="关闭菜单"
+        ><CloseOutlined
+      /></a-button>
     </div>
     <div class="mobile-drawer-user" v-if="userStore.isLoggedIn">
-      <a-avatar style="background-color: #1677ff"><template #icon><UserOutlined /></template></a-avatar>
+      <a-avatar style="background-color: #1677ff"
+        ><template #icon><UserOutlined /></template
+      ></a-avatar>
       <div class="mobile-drawer-user-info">
         <span class="mobile-drawer-username">{{ userStore.user?.username }}</span>
         <a-tag v-if="userStore.user?.is_admin" color="red" size="small">管理员</a-tag>
       </div>
     </div>
-    <a-menu mode="inline" :selected-keys="selectedKeys" :items="navItems" @click="onNavClick" style="border: none" />
+    <a-menu
+      mode="inline"
+      :selected-keys="selectedKeys"
+      :items="navItems"
+      @click="onNavClick"
+      style="border: none"
+    />
     <div v-if="userStore.isLoggedIn" class="mobile-drawer-footer">
-      <a-button danger block @click="handleLogout" aria-label="退出登录"><LogoutOutlined /> 退出登录</a-button>
+      <a-button danger block @click="handleLogout" aria-label="退出登录"
+        ><LogoutOutlined /> 退出登录</a-button
+      >
     </div>
   </a-drawer>
 
-  <main :class="route.path.startsWith('/admin') ? 'admin-main' : 'py-5 min-h-[calc(100vh-200px)]'" role="main">
+  <main :class="route.path.startsWith('/admin') ? 'admin-main' : ''" role="main">
     <ErrorBoundary>
       <Suspense>
         <RouterView />
         <template #fallback>
-          <output class="flex flex-col items-center justify-center py-[60px] px-5" aria-live="polite">
-            <div class="w-10 h-10 border-3 border-[color-mix(in_srgb,var(--theme-primary)_20%,transparent)] border-t-[var(--theme-primary)] rounded-full animate-spin" aria-hidden="true"></div>
+          <output
+            class="flex flex-col items-center justify-center py-[60px] px-5"
+            aria-live="polite"
+          >
+            <div
+              class="w-10 h-10 border-3 border-[color-mix(in_srgb,var(--theme-primary)_20%,transparent)] border-t-[var(--theme-primary)] rounded-full animate-spin"
+              aria-hidden="true"
+            ></div>
             <p class="mt-4 text-[var(--theme-text-secondary)] text-[14px]">加载中...</p>
           </output>
         </template>
@@ -413,7 +461,7 @@ html.theme-liquidGlass .app-footer-text {
     top: 0;
     left: 0;
     right: 0;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
   }
 
   .app-nav-menu {
@@ -478,5 +526,4 @@ html.theme-liquidGlass .app-footer-text {
     gap: 8px;
   }
 }
-
 </style>

@@ -3,6 +3,7 @@ package util
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/bytedance/sonic"
@@ -10,12 +11,19 @@ import (
 )
 
 var (
-	rdb *redis.Client
-	ctx = context.Background()
+	rdb        *redis.Client
+	ctx        = context.Background()
+	keyPrefix  = "xqecz:" // 默认前缀，可通过 InitRedisWithPrefix 修改
 )
 
 // InitRedis 初始化Redis连接
 func InitRedis(host string, port int, password string, db int) error {
+	return InitRedisWithPrefix(host, port, password, db, "xqecz:")
+}
+
+// InitRedisWithPrefix 初始化Redis连接（带前缀）
+func InitRedisWithPrefix(host string, port int, password string, db int, prefix string) error {
+	keyPrefix = prefix
 	rdb = redis.NewClient(&redis.Options{
 		Addr:     fmt.Sprintf("%s:%d", host, port),
 		Password: password,
@@ -46,7 +54,7 @@ func CloseRedis() error {
 
 // RedisKey 获取带前缀的key
 func RedisKey(key string) string {
-	return key
+	return keyPrefix + key
 }
 
 // SetCache 设置缓存
@@ -140,6 +148,83 @@ func GetSession(sessionID string) (uint64, error) {
 // DelSession 删除会话
 func DelSession(sessionID string) error {
 	return DelCache(fmt.Sprintf("session:%s", sessionID))
+}
+
+// DeleteSession 删除会话（别名）
+func DeleteSession(sessionID string) error {
+	return DelSession(sessionID)
+}
+
+// IsRedisAvailable 检查Redis是否可用
+func IsRedisAvailable() bool {
+	return rdb != nil
+}
+
+// ZRevRangeRecommend 获取推荐ZSet（倒序）
+func ZRevRangeRecommend(start, end int64) ([]uint64, error) {
+	if rdb == nil {
+		return nil, fmt.Errorf("redis not available")
+	}
+	key := "recommend:zset"
+	vals, err := rdb.ZRevRange(ctx, key, start, end).Result()
+	if err != nil {
+		return nil, err
+	}
+	var ids []uint64
+	for _, v := range vals {
+		var id uint64
+		if _, err := fmt.Sscanf(v, "%d", &id); err == nil {
+			ids = append(ids, id)
+		}
+	}
+	return ids, nil
+}
+
+// ClearCommentCache 清除评论缓存
+func ClearCommentCache(contentID uint64) {
+	if rdb == nil {
+		return
+	}
+	// 清除评论列表缓存
+	pattern := fmt.Sprintf("comments:%d:*", contentID)
+	clearCacheByPattern(pattern)
+	// 清除评论数量缓存
+	DelCache(fmt.Sprintf("comment_count:%d", contentID))
+}
+
+// ClearContentListCache 清除内容列表缓存
+func ClearContentListCache() {
+	if rdb == nil {
+		return
+	}
+	clearCacheByPattern("content_list:*")
+}
+
+// ClearContentCache 清除内容详情缓存
+func ClearContentCache(contentID uint64) {
+	if rdb == nil {
+		return
+	}
+	DelCache(fmt.Sprintf("content:%d", contentID))
+}
+
+// ClearUserInfoCache 清除用户信息缓存
+func ClearUserInfoCache(userID uint64) {
+	if rdb == nil {
+		return
+	}
+	DelCache(fmt.Sprintf("user:%d", userID))
+}
+
+// clearCacheByPattern 根据模式清除缓存
+func clearCacheByPattern(pattern string) {
+	if rdb == nil {
+		return
+	}
+	iter := rdb.Scan(ctx, 0, pattern, 100).Iterator()
+	for iter.Next(ctx) {
+		rdb.Del(ctx, iter.Val())
+	}
 }
 
 // SetViewCount 设置查看计数
@@ -254,16 +339,36 @@ func ClearCachesOnStartup() {
 	}
 
 	// 清理除session和view之外的缓存
-	iter := rdb.Scan(ctx, 0, "*", 100).Iterator()
+	pattern := RedisKey("*")
+	iter := rdb.Scan(ctx, 0, pattern, 100).Iterator()
 	for iter.Next(ctx) {
 		key := iter.Val()
 		// 保留session和view计数
-		if len(key) > 8 && key[:8] == "session:" {
-			continue
-		}
-		if len(key) > 11 && key[:11] == "views:date:" {
+		if strings.Contains(key, ":session:") || strings.Contains(key, ":views:date:") {
 			continue
 		}
 		rdb.Del(ctx, key)
 	}
+}
+
+// ZAddToTempRecommend 添加到临时推荐ZSet
+func ZAddToTempRecommend(contentID uint64, score float64) {
+	if rdb == nil {
+		return
+	}
+	rdb.ZAdd(ctx, "recommend:temp", redis.Z{
+		Score:  score,
+		Member: contentID,
+	})
+}
+
+// SwapRecommendZSet 替换推荐ZSet
+func SwapRecommendZSet() error {
+	if rdb == nil {
+		return fmt.Errorf("redis not available")
+	}
+	// 删除旧的推荐ZSet
+	rdb.Del(ctx, "recommend:zset")
+	// 重命名临时ZSet为正式ZSet
+	return rdb.Rename(ctx, "recommend:temp", "recommend:zset").Err()
 }

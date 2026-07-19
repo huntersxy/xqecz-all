@@ -17,7 +17,7 @@ export const themeMeta: ThemeMeta = {
       surface: '#ffffff',
       cardBg: 'rgba(255, 255, 255, 0.9)',
       cardBorder: 'rgba(139, 92, 246, 0.12)',
-      headerBg: 'linear-gradient(135deg, rgba(139,92,246,0.08), rgba(245,158,11,0.05))',
+      headerBg: '#f8f7ff',
       hoverBg: '#f5f3ff',
       placeholderBg: '#f3f4f6',
       overlayBg: 'rgba(255, 255, 255, 0.6)',
@@ -38,7 +38,7 @@ export const themeMeta: ThemeMeta = {
       surface: '#0c0a1d',
       cardBg: 'rgba(20, 18, 45, 0.9)',
       cardBorder: 'rgba(167, 139, 250, 0.12)',
-      headerBg: 'linear-gradient(135deg, rgba(12,10,29,0.95), rgba(20,18,45,0.95))',
+      headerBg: '#1a1530',
       hoverBg: 'rgba(167, 139, 250, 0.08)',
       placeholderBg: '#1e1b4b',
       overlayBg: 'rgba(0, 0, 0, 0.6)',
@@ -88,6 +88,17 @@ const swapSections = computed(
     searchFilter.selectedTypes.value.length > 0 ||
     !!searchFilter.searchKeyword.value.trim(),
 )
+
+// ── 标签展开/收起 ──
+const showMore = ref(false)
+const maxVisibleTags = 15
+const displayedTags = computed(() => {
+  if (showMore.value) return searchFilter.sortedTags.value
+  return searchFilter.sortedTags.value.slice(0, maxVisibleTags)
+})
+function toggleMore() {
+  showMore.value = !showMore.value
+}
 
 // ── 数据状态 ──
 const allContents = ref<Content[]>([])
@@ -477,7 +488,7 @@ onMounted(() => {
 
     <!-- 筛选条 -->
     <div class="wf-filters-bar">
-      <div class="wf-filters-scroll">
+      <div :class="['wf-filters-scroll', { expanded: showMore }]">
         <button
           v-for="type in contentTypes"
           :key="type"
@@ -488,12 +499,29 @@ onMounted(() => {
         </button>
         <span class="wf-divider"></span>
         <button
-          v-for="tag in searchFilter.sortedTags.value"
+          v-for="tag in displayedTags"
           :key="tag"
           :class="['wf-chip', { active: searchFilter.selectedTags.value.includes(tag) }]"
           @click="selectTag(tag)"
         >
           {{ tag }}
+        </button>
+        <button
+          v-if="searchFilter.sortedTags.value.length > maxVisibleTags"
+          class="wf-chip wf-chip--more"
+          @click="toggleMore"
+        >
+          {{ showMore ? '收起' : '更多' }}
+          <svg
+            class="wf-more-arrow"
+            :class="{ rotated: showMore }"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path d="M6 9l6 6 6-6" />
+          </svg>
         </button>
       </div>
     </div>
@@ -577,6 +605,7 @@ onMounted(() => {
                 :src="getImageUrl(item.img || item.thumb)"
                 :alt="item.title"
                 loading="lazy"
+                decoding="async"
                 @load="onImageLoad(item.id, $event)"
               />
               <div v-if="item.type === 'video'" class="wf-play-btn">
@@ -633,18 +662,14 @@ onMounted(() => {
 <style lang="scss" scoped>
 .wf-root {
   min-height: 100vh;
-  background: var(--theme-bg-color);
+  background: transparent;
   color: var(--theme-text);
 }
 
 /* ===== 顶栏 ===== */
 .wf-topbar {
-  position: sticky;
-  top: 0;
+  position: relative;
   z-index: 100;
-  background: var(--theme-header-bg);
-  backdrop-filter: blur(16px) saturate(1.4);
-  border-bottom: 1px solid var(--theme-card-border);
 }
 
 .wf-topbar-inner {
@@ -653,31 +678,40 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.625rem 1rem;
+  padding: 0.75rem 1.25rem;
   gap: 1rem;
+  background: var(--theme-header-bg);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+@media (max-width: 768px) {
+  .wf-topbar-inner {
+    padding: 0.625rem 0.75rem;
+  }
 }
 
 .wf-brand {
   display: flex;
   align-items: center;
-  gap: 0.375rem;
+  gap: 0.5rem;
   flex-shrink: 0;
 }
 
 .wf-dot {
-  width: 0.625rem;
-  height: 0.625rem;
+  width: 0.75rem;
+  height: 0.75rem;
   border-radius: 50%;
-  background: #ff5f57;
+  background: var(--theme-primary);
+  opacity: 0.8;
 
-  &--y { background: #febc2e; }
-  &--g { background: #28c840; }
+  &--y { background: var(--theme-accent); opacity: 0.7; }
+  &--g { background: var(--theme-success); opacity: 0.6; }
 }
 
 .wf-brand-text {
   margin-left: 0.5rem;
-  font-size: 0.8125rem;
-  font-weight: 600;
+  font-size: 1.125rem;
+  font-weight: 700;
   color: var(--theme-text);
   letter-spacing: 0.02em;
 }
@@ -689,47 +723,49 @@ onMounted(() => {
   border: 1px solid var(--theme-card-border);
   border-radius: 2rem;
   overflow: hidden;
-  max-width: 320px;
+  max-width: 360px;
   flex: 1;
+  transition: all 0.3s ease;
+
+  &:focus-within {
+    border-color: var(--theme-primary);
+    box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.1);
+  }
 
   input {
     flex: 1;
-    padding: 0.5rem 0.875rem;
-    font-size: 0.8125rem;
+    padding: 0.625rem 1rem;
+    font-size: 0.875rem;
     background: transparent;
     border: none;
     outline: none;
     color: var(--theme-text);
 
-    &::placeholder { color: var(--theme-text-secondary); opacity: 0.5; }
+    &::placeholder { color: var(--theme-text-secondary); opacity: 0.6; }
   }
 
   button {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 2.25rem;
-    height: 2.25rem;
+    width: 2.5rem;
+    height: 2.5rem;
     background: var(--theme-primary);
     border: none;
     cursor: pointer;
     color: #fff;
     flex-shrink: 0;
-    transition: filter 0.15s;
+    transition: all 0.2s ease;
 
-    svg { width: 1rem; height: 1rem; }
-    &:hover { filter: brightness(0.9); }
+    svg { width: 1.125rem; height: 1.125rem; }
+    &:hover { opacity: 0.9; }
   }
 }
 
 /* ===== 筛选条 ===== */
 .wf-filters-bar {
-  position: sticky;
-  top: 49px;
+  position: relative;
   z-index: 99;
-  background: var(--theme-header-bg);
-  backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--theme-card-border);
 }
 
 .wf-filters-scroll {
@@ -737,25 +773,42 @@ onMounted(() => {
   margin: 0 auto;
   display: flex;
   align-items: center;
-  gap: 0.375rem;
-  padding: 0.5rem 1rem;
+  gap: 0.5rem;
+  padding: 0.625rem 1.25rem;
   overflow-x: auto;
   scrollbar-width: none;
+  background: var(--theme-header-bg);
+  border-radius: 0 0 0.75rem 0.75rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  flex-wrap: nowrap;
 
   &::-webkit-scrollbar { display: none; }
+
+  &.expanded {
+    flex-wrap: wrap;
+    overflow-x: visible;
+  }
+}
+
+@media (max-width: 768px) {
+  .wf-filters-scroll {
+    padding: 0.5rem 0.75rem;
+    gap: 0.375rem;
+    border-radius: 0;
+  }
 }
 
 .wf-chip {
   flex-shrink: 0;
-  padding: 0.25rem 0.75rem;
-  font-size: 0.75rem;
+  padding: 0.375rem 1rem;
+  font-size: 0.8125rem;
   font-weight: 500;
   color: var(--theme-text-secondary);
   background: var(--theme-surface);
   border: 1px solid var(--theme-card-border);
-  border-radius: 2rem;
+  border-radius: 1.5rem;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all 0.2s ease;
   white-space: nowrap;
 
   &:hover {
@@ -766,14 +819,44 @@ onMounted(() => {
   &.active {
     color: #fff;
     background: var(--theme-primary);
-    border-color: var(--theme-primary);
+    border-color: transparent;
+  }
+
+  &--more {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    color: var(--theme-primary);
+    background: rgba(139, 92, 246, 0.08);
+    border-color: rgba(139, 92, 246, 0.2);
+
+    &:hover {
+      background: rgba(139, 92, 246, 0.15);
+    }
+  }
+}
+
+.wf-more-arrow {
+  width: 0.875rem;
+  height: 0.875rem;
+  transition: transform 0.2s ease;
+
+  &.rotated {
+    transform: rotate(180deg);
+  }
+}
+
+@media (max-width: 768px) {
+  .wf-chip {
+    padding: 0.3rem 0.75rem;
+    font-size: 0.75rem;
   }
 }
 
 .wf-divider {
   width: 1px;
-  height: 1rem;
-  background: var(--theme-card-border);
+  height: 1.25rem;
+  background: rgba(0, 0, 0, 0.1);
   flex-shrink: 0;
   margin: 0 0.25rem;
 }
@@ -915,7 +998,6 @@ onMounted(() => {
 .wf-masonry {
   position: relative;
   width: 100%;
-  transition: height 0.2s ease;
 }
 
 .wf-card {

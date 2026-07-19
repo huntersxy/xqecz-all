@@ -82,6 +82,19 @@ func Migrate(db *sqlx.DB) error {
 			INDEX idx_comment_reports_handled (handled)
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 
+		// 审核日志表
+		`CREATE TABLE IF NOT EXISTS audit_logs (
+			id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+			content_id BIGINT UNSIGNED NOT NULL,
+			admin_id BIGINT UNSIGNED NOT NULL,
+			status VARCHAR(20) NOT NULL,
+			remark TEXT,
+			created_at DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3),
+			INDEX idx_audit_logs_content_id (content_id),
+			INDEX idx_audit_logs_admin_id (admin_id),
+			INDEX idx_audit_logs_created_at (created_at)
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
 		// 投票表
 		`CREATE TABLE IF NOT EXISTS polls (
 			id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,

@@ -85,21 +85,21 @@ export default defineConfig(async ({ mode }) => {
     },
     server: {
       proxy: {
-        // 开发态将 /api 代理到 Docker 容器的 nginx（反代后端 8080）
+        // 开发态将 /api 代理到后端 8080
         '/api': {
-          target: 'http://localhost:9200',
+          target: 'http://localhost:8080',
           changeOrigin: true,
         },
         '/uploads': {
-          target: 'http://localhost:9200',
+          target: 'http://localhost:8080',
           changeOrigin: true,
         },
         '/thumbnails': {
-          target: 'http://localhost:9200',
+          target: 'http://localhost:8080',
           changeOrigin: true,
         },
         '/images': {
-          target: 'http://localhost:9200',
+          target: 'http://localhost:8080',
           changeOrigin: true,
         },
       },
