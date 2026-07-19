@@ -17,8 +17,7 @@ cd "$APP_DIR"
 git pull
 echo "✓ 代码已更新"
 
-# 清理并创建 dist 目录
-rm -rf "$DIST_DIR"
+# 准备 dist 目录（保留运行时数据）
 mkdir -p "$DIST_DIR"
 mkdir -p "$DIST_DIR/config"
 mkdir -p "$DIST_DIR/frontend"
@@ -26,6 +25,9 @@ mkdir -p "$DIST_DIR/uploads"
 mkdir -p "$DIST_DIR/thumbnails"
 mkdir -p "$DIST_DIR/images"
 mkdir -p "$DIST_DIR/logs"
+
+# 清理构建产物（不影响运行时数据）
+rm -rf "$DIST_DIR/frontend/dist"
 
 # ==================== 构建前端 ====================
 echo ""
