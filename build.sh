@@ -4,6 +4,16 @@
 
 set -e
 
+# 加载环境变量
+source /etc/profile 2>/dev/null || true
+source ~/.bashrc 2>/dev/null || true
+source ~/.nvm/nvm.sh 2>/dev/null || true
+export HOME=${HOME:-/root}
+export GOPATH=$HOME/go
+export GOMODCACHE=$GOPATH/pkg/mod
+export GOCACHE=$HOME/.cache/go-build
+export PATH=$PATH:/usr/local/go/bin:$GOPATH/bin:/usr/local/bin:/usr/local/node/bin:$HOME/.nvm/versions/node/*/bin
+
 APP_DIR=$(cd "$(dirname "$0")" && pwd)
 DIST_DIR="$APP_DIR/dist"
 
