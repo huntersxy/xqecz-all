@@ -1,0 +1,21 @@
+[Unit]
+Description=xqecz-all Server
+After=network.target mysql.service redis.service
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/opt/xqecz-all
+ExecStart=/opt/xqecz-all/server
+Restart=always
+RestartSec=5
+
+# 环境变量
+Environment=GIN_MODE=release
+
+# 限制
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

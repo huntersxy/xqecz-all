@@ -11,6 +11,10 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        NODE_IMAGE: ${NODE_IMAGE:-node:22-alpine}
+        GOLANG_IMAGE: ${GOLANG_IMAGE:-golang:1.25-alpine}
+        ALPINE_IMAGE: ${ALPINE_IMAGE:-alpine:3.20}
     image: ${XQ_IMAGE:-xqecz}:${XQ_TAG:-latest}
     container_name: xqecz-app
     mem_limit: 512m
