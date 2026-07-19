@@ -1,0 +1,87 @@
+# xqecz-all 全栈编排
+#
+# 生产部署（远程 MySQL + Redis）：
+#   docker compose build && docker compose up -d
+#   → 仅启动 app，数据库由 docker/config.yaml 指向远程地址
+#
+# 本地开发（Docker MySQL + Redis）：
+#   docker compose --profile dev up -d
+#   → 启动 app + mysql + redis
+#
+# 仅启动基础设施（不启动 app）：
+#   docker compose --profile dev up -d mysql redis
+#
+# 访问：http://localhost:9200
+# 查看 admin 初始密码：docker compose logs -f app
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_BASE_URL=/api
+        - VITE_MEDIA_BASE_URL=
+    image: ${XQ_IMAGE:-xqecz}:${XQ_TAG:-latest}
+    container_name: xqecz-app
+    mem_limit: 512m
+    ports:
+      - "${XQ_APP_PORT:-9200}:80"
+    depends_on:
+      mysql:
+        condition: service_healthy
+        required: false
+      redis:
+        condition: service_started
+        required: false
+    environment:
+      - TZ=Asia/Shanghai
+    volumes:
+      - ./config:/app/config
+      - ./uploads:/app/uploads
+      - ./thumbnails:/app/thumbnails
+      - ./images:/app/images
+    restart: unless-stopped
+
+  mysql:
+    profiles: [dev]
+    image: mariadb:10.5.23
+    container_name: xqecz-mysql
+    mem_limit: 1g
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --performance-schema=OFF
+      - --innodb-buffer-pool-size=384M
+      - --aria-pagecache-buffer-size=32M
+      - --innodb-log-buffer-size=16M
+      - --max-connections=100
+      - --innodb-read-io-threads=4
+      - --innodb-write-io-threads=4
+      - --query-cache-type=0
+      - --query-cache-size=0
+    environment:
+      MARIADB_ROOT_PASSWORD: ${XQ_MYSQL_ROOT_PASSWORD:-root}
+      MARIADB_DATABASE: ${XQ_MYSQL_DATABASE:-xqecz}
+      MARIADB_USER: ${XQ_MYSQL_USER:-xqecz}
+      MARIADB_PASSWORD: ${XQ_MYSQL_PASSWORD:-xqecz}
+    ports:
+      - "${XQ_MYSQL_PORT:-13306}:3306"
+    volumes:
+      - ./docker_data/data/mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+    restart: unless-stopped
+
+  redis:
+    profiles: [dev]
+    image: redis:8.4-alpine
+    container_name: xqecz-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./docker_data/data/redis:/data
+    restart: unless-stopped

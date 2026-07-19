@@ -1,0 +1,51 @@
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+server
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+
+# Go workspace file
+go.work
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Docker
+docker_data/
+
+# Uploads
+uploads/
+thumbnails/
+images/
+
+# Config (keep example)
+config/config.yaml
+!config/config.example.yaml
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.bak

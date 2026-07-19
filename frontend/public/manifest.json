@@ -1,0 +1,41 @@
+{
+  "name": "小泉动漫二创站",
+  "short_name": "小泉动漫",
+  "description": "发现精彩二创内容",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#3b82f6",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "lang": "zh-CN",
+  "categories": ["entertainment", "social"],
+  "icons": [
+    {
+      "src": "/favicon.webp",
+      "sizes": "any",
+      "type": "image/webp",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon.webp",
+      "sizes": "any",
+      "type": "image/webp",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "首页",
+      "short_name": "首页",
+      "url": "/",
+      "icons": [
+        {
+          "src": "/favicon.webp",
+          "sizes": "any"
+        }
+      ]
+    }
+  ]
+}
