@@ -61,11 +61,13 @@ echo "✓ 后端构建完成 -> dist/server"
 # ==================== 复制配置 ====================
 echo ""
 echo "=== 复制配置 ==="
-if [ -f "$APP_DIR/config/config.yaml" ]; then
+if [ -f "$DIST_DIR/config/config.yaml" ]; then
+    echo "✓ 配置文件已存在，跳过 (dist/config/config.yaml)"
+elif [ -f "$APP_DIR/config/config.yaml" ]; then
     cp "$APP_DIR/config/config.yaml" "$DIST_DIR/config/"
     echo "✓ 配置文件 -> dist/config/config.yaml"
 else
-    echo "警告: config/config.yaml 不存在，请手动创建"
+    echo "警告: config/config.yaml 不存在，请手动创建 dist/config/config.yaml"
 fi
 
 # ==================== 完成 ====================
