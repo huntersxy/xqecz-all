@@ -1,8 +1,11 @@
 #!/bin/bash
-# xqecz-all 运行脚本
-# 用法: ./run.sh [start|stop|restart|status|logs]
-
-set -e
+# xqecz-all 运行脚本（适用于宝塔面板启动脚本）
+# 用法:
+#   ./run.sh          # 启动（前台）
+#   ./run.sh start    # 启动（后台 nohup）
+#   ./run.sh stop     # 停止
+#   ./run.sh restart  # 重启
+#   ./run.sh status   # 查看状态
 
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 APP_DIR="$SCRIPT_DIR/dist"
@@ -16,11 +19,28 @@ export HOME=${HOME:-/root}
 export GOPATH=$HOME/go
 export GOCACHE=$HOME/.cache/go-build
 
-# 启动服务
+# 前台运行（宝塔启动脚本用这个）
+run_foreground() {
+    cd "$APP_DIR"
+
+    if [ ! -f "./server" ]; then
+        echo "错误: server 二进制不存在"
+        exit 1
+    fi
+
+    if [ ! -f "config/config.yaml" ]; then
+        echo "错误: config/config.yaml 不存在"
+        exit 1
+    fi
+
+    exec ./server
+}
+
+# 后台启动
 start() {
     if [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
         echo "服务已在运行 (PID: $(cat "$PID_FILE"))"
-        return 1
+        return 0
     fi
 
     cd "$APP_DIR"
@@ -35,79 +55,45 @@ start() {
         exit 1
     fi
 
-    echo "启动服务..."
     nohup ./server >> "$LOG_FILE" 2>&1 &
     echo $! > "$PID_FILE"
-
     sleep 1
 
     if kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
         echo "✓ 服务已启动 (PID: $(cat "$PID_FILE"))"
-        echo "日志: tail -f $LOG_FILE"
     else
-        echo "✗ 服务启动失败，查看日志: $LOG_FILE"
-        tail -20 "$LOG_FILE"
+        echo "✗ 服务启动失败"
+        cat "$LOG_FILE" | tail -20
         return 1
     fi
 }
 
-# 停止服务
+# 停止
 stop() {
     if [ ! -f "$PID_FILE" ]; then
-        echo "服务未运行"
         return 0
     fi
 
     PID=$(cat "$PID_FILE")
     if kill -0 "$PID" 2>/dev/null; then
-        echo "停止服务 (PID: $PID)..."
-        kill "$PID"
+        kill "$PID" 2>/dev/null
         sleep 2
-        if kill -0 "$PID" 2>/dev/null; then
-            kill -9 "$PID"
-        fi
-        rm -f "$PID_FILE"
-        echo "✓ 服务已停止"
-    else
-        echo "服务未运行"
-        rm -f "$PID_FILE"
+        kill -9 "$PID" 2>/dev/null
     fi
-}
-
-# 重启服务
-restart() {
-    stop
-    sleep 1
-    start
-}
-
-# 查看状态
-status() {
-    if [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
-        echo "服务运行中 (PID: $(cat "$PID_FILE"))"
-    else
-        echo "服务未运行"
-    fi
-}
-
-# 查看日志
-logs() {
-    if [ -f "$LOG_FILE" ]; then
-        tail -f "$LOG_FILE"
-    else
-        echo "日志文件不存在"
-    fi
+    rm -f "$PID_FILE"
 }
 
 # 主逻辑
-case "${1:-start}" in
+case "${1}" in
     start)   start ;;
     stop)    stop ;;
-    restart) restart ;;
-    status)  status ;;
-    logs)    logs ;;
-    *)
-        echo "用法: $0 {start|stop|restart|status|logs}"
-        exit 1
+    restart) stop; sleep 1; start ;;
+    status)
+        if [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
+            echo "运行中 (PID: $(cat "$PID_FILE"))"
+        else
+            echo "未运行"
+        fi
         ;;
+    *)       run_foreground ;;
 esac
