@@ -153,10 +153,11 @@ func (s *ClaimService) GetClaimList(status string, contentID string, page, pageS
 
 		if content, ok := contentsMap[claim.ContentID]; ok {
 			item["content"] = map[string]interface{}{
-				"id":          content.ID,
-				"title":       content.Title,
-				"type":        content.ContentType,
+				"id":           content.ID,
+				"title":        content.Title,
+				"type":         content.ContentType,
 				"audit_status": content.AuditStatus,
+				"thumb":        content.ThumbPath.String,
 			}
 		}
 
