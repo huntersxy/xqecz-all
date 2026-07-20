@@ -85,21 +85,21 @@ export default defineConfig(async ({ mode }) => {
     },
     server: {
       proxy: {
-        // 开发态将 /api 代理到后端 8080
+        // 开发态将 /api 与媒体路径代理到 Node 概念版后端 (端口 3000)
         '/api': {
-          target: 'http://localhost:8080',
+          target: 'http://localhost:3000',
           changeOrigin: true,
         },
         '/uploads': {
-          target: 'http://localhost:8080',
+          target: 'http://localhost:3000',
           changeOrigin: true,
         },
         '/thumbnails': {
-          target: 'http://localhost:8080',
+          target: 'http://localhost:3000',
           changeOrigin: true,
         },
         '/images': {
-          target: 'http://localhost:8080',
+          target: 'http://localhost:3000',
           changeOrigin: true,
         },
       },
