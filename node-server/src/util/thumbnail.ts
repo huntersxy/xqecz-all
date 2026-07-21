@@ -4,7 +4,7 @@ import { spawn } from 'node:child_process'
 import { existsSync, unlinkSync, statSync } from 'node:fs'
 import { join, extname } from 'node:path'
 import { randomBytes } from 'node:crypto'
-import { UPLOAD_DIR } from './media.js'
+import { UPLOAD_DIR, THUMB_DIR } from './media.js'
 
 const THUMB_WIDTH = 480
 
@@ -16,9 +16,9 @@ function isVideo(ext: string): boolean {
 }
 
 /**
- * Generate a thumbnail for an uploaded file (stored in UPLOAD_DIR).
+ * Generate a thumbnail for an uploaded file (original in UPLOAD_DIR, thumbnail in THUMB_DIR).
  * @param filename bare filename stored in uploads (e.g. "1699_ab12.png")
- * @returns public URL of the thumbnail ("/uploads/thumb_xxx.webp") or null on failure/unsupported
+ * @returns public URL of the thumbnail ("/uploads/thumbs/thumb_xxx.webp") or null on failure/unsupported
  */
 export async function generateThumbnail(filename: string): Promise<string | null> {
   if (!filename) return null
@@ -27,7 +27,7 @@ export async function generateThumbnail(filename: string): Promise<string | null
 
   const ext = extname(filename).toLowerCase()
   const out = `thumb_${Date.now()}_${randomBytes(4).toString('hex')}.webp`
-  const outPath = join(UPLOAD_DIR, out)
+  const outPath = join(THUMB_DIR, out)
 
   try {
     if (isImage(ext)) {
@@ -36,7 +36,7 @@ export async function generateThumbnail(filename: string): Promise<string | null
         .resize({ width: THUMB_WIDTH, withoutEnlargement: true })
         .webp({ quality: 78 })
         .toFile(outPath)
-      return `/uploads/${out}`
+      return `/uploads/thumbs/${out}`
     }
     if (isVideo(ext)) {
       return await videoThumbnail(src, outPath, out)
@@ -67,7 +67,7 @@ async function videoThumbnail(
   if (!ok || !existsSync(tmpPng)) return null
   try {
     await sharp(tmpPng).webp({ quality: 78 }).toFile(outPath)
-    return `/uploads/${out}`
+    return `/uploads/thumbs/${out}`
   } finally {
     try {
       unlinkSync(tmpPng)

@@ -24,7 +24,7 @@ import {
 import { parsePagination } from '../util/pagination.js'
 import { success, paginated, error } from '../util/response.js'
 import { requireAdmin, requireAuth } from '../middleware/auth.js'
-import { UPLOAD_DIR } from '../util/media.js'
+import { UPLOAD_DIR, THUMB_DIR } from '../util/media.js'
 import { generateThumbnail } from '../util/thumbnail.js'
 import type { ClaimStatus, CommentReport as CommentReportType } from '../types.js'
 
@@ -148,7 +148,7 @@ router.delete('/content/purge', (_req, res) => {
   success(res, { count }, `已清理 ${count} 条`)
 })
 
-// Clean orphaned files in the uploads directory.
+// Clean orphaned files in the uploads directory (originals + thumbnails subdir).
 router.delete('/files/clean', (_req, res) => {
   if (!existsSync(UPLOAD_DIR)) return success(res, { deleted: 0 })
   const referenced = new Set<string>()
@@ -160,12 +160,21 @@ router.delete('/files/clean', (_req, res) => {
       if (f) referenced.add(f.split('/').pop() as string)
     }
   }
-  const files = readdirSync(UPLOAD_DIR)
+  // Scan both originals and the thumbs subdirectory (skip dir entries).
   let deleted = 0
-  for (const f of files) {
-    if (!referenced.has(f)) {
+  const targets: { dir: string; name: string }[] = []
+  for (const f of readdirSync(UPLOAD_DIR, { withFileTypes: true })) {
+    if (f.isFile()) targets.push({ dir: UPLOAD_DIR, name: f.name })
+  }
+  if (existsSync(THUMB_DIR)) {
+    for (const f of readdirSync(THUMB_DIR, { withFileTypes: true })) {
+      if (f.isFile()) targets.push({ dir: THUMB_DIR, name: f.name })
+    }
+  }
+  for (const t of targets) {
+    if (!referenced.has(t.name)) {
       try {
-        unlinkSync(`${UPLOAD_DIR}/${f}`)
+        unlinkSync(`${t.dir}/${t.name}`)
         deleted += 1
       } catch {
         /* ignore */

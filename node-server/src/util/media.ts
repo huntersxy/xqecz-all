@@ -10,6 +10,11 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 export const UPLOAD_DIR = resolve(__dirname, '..', '..', 'uploads')
 if (!existsSync(UPLOAD_DIR)) mkdirSync(UPLOAD_DIR, { recursive: true })
 
+// Thumbnails live in node-server/uploads/thumbs, served at /uploads/thumbs.
+// Keeping them in a dedicated subdir makes cleanup / orphan-scanning unambiguous.
+export const THUMB_DIR = resolve(UPLOAD_DIR, 'thumbs')
+if (!existsSync(THUMB_DIR)) mkdirSync(THUMB_DIR, { recursive: true })
+
 const ALLOWED = new Set([
   '.jpg',
   '.jpeg',

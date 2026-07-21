@@ -24,10 +24,8 @@ export function createApp(): express.Express {
   app.use(express.json({ limit: '10mb' }))
   app.use(express.urlencoded({ extended: true, limit: '10mb' }))
 
-  // Media (served at /uploads, /thumbnails, /images — matches frontend proxy map).
+  // Media: originals at /uploads, thumbnails at /uploads/thumbs (subdir of UPLOAD_DIR).
   app.use('/uploads', express.static(UPLOAD_DIR))
-  app.use('/thumbnails', express.static(UPLOAD_DIR))
-  app.use('/images', express.static(UPLOAD_DIR))
 
   // Health check.
   app.get('/api/health', (_req, res) => res.json({ code: 200, message: 'ok', data: { ok: true } }))
