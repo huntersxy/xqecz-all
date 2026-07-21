@@ -10,7 +10,6 @@ import type {
   Content,
   ContentRow,
   ContentType,
-  Notification,
   Poll,
   RecommendContent,
   User,
@@ -123,18 +122,6 @@ CREATE TABLE IF NOT EXISTS claims (
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL
 );
-
-CREATE TABLE IF NOT EXISTS notifications (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id INTEGER NOT NULL,
-  type TEXT NOT NULL,
-  title TEXT NOT NULL,
-  content TEXT DEFAULT '',
-  related_id INTEGER,
-  is_read INTEGER NOT NULL DEFAULT 0,
-  created_at INTEGER NOT NULL
-);
-CREATE INDEX IF NOT EXISTS idx_notif_user ON notifications(user_id);
 
 CREATE TABLE IF NOT EXISTS api_keys (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -788,69 +775,6 @@ export function decorateClaim(row: any): Claim {
     created_at: new Date(row.created_at * 1000).toISOString(),
     updated_at: row.updated_at ? new Date(row.updated_at * 1000).toISOString() : undefined,
   }
-}
-
-/* ------------------------------------------------------------------ */
-/* Notifications + devices                                            */
-/* ------------------------------------------------------------------ */
-
-export function createNotification(input: {
-  userId: number
-  type: string
-  title: string
-  content: string
-  relatedId?: number | null
-}): void {
-  db.prepare(
-    'INSERT INTO notifications (user_id, type, title, content, related_id, is_read, created_at) VALUES (?, ?, ?, ?, ?, 0, ?)',
-  ).run(
-    input.userId,
-    input.type,
-    input.title,
-    input.content,
-    input.relatedId ?? null,
-    now(),
-  )
-}
-
-export function listNotifications(
-  userId: number,
-  opts: { offset: number; limit: number },
-): { rows: Notification[]; total: number } {
-  const totalRow = db
-    .prepare('SELECT COUNT(*) AS c FROM notifications WHERE user_id = ?')
-    .get(userId) as { c: number }
-  const rows = db
-    .prepare(
-      'SELECT * FROM notifications WHERE user_id = ? ORDER BY is_read ASC, created_at DESC LIMIT ? OFFSET ?',
-    )
-    .all(userId, opts.limit, opts.offset) as any[]
-  const list: Notification[] = rows.map((r) => ({
-    id: r.id,
-    user_id: r.user_id,
-    type: r.type,
-    title: r.title,
-    content: r.content,
-    related_id: r.related_id ?? null,
-    is_read: !!r.is_read,
-    created_at: r.created_at,
-  }))
-  return { rows: list, total: totalRow.c }
-}
-
-export function countUnread(userId: number): number {
-  const row = db
-    .prepare('SELECT COUNT(*) AS c FROM notifications WHERE user_id = ? AND is_read = 0')
-    .get(userId) as { c: number }
-  return row.c
-}
-
-export function markRead(id: number, userId: number): void {
-  db.prepare('UPDATE notifications SET is_read = 1 WHERE id = ? AND user_id = ?').run(id, userId)
-}
-
-export function markAllRead(userId: number): void {
-  db.prepare('UPDATE notifications SET is_read = 1 WHERE user_id = ?').run(userId)
 }
 
 /* ------------------------------------------------------------------ */

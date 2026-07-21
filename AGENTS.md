@@ -3,9 +3,9 @@
 ## 项目概述
 
 小泉动漫二创站 — Node.js + TypeScript + Express 后端 + Vue 3 全栈应用（`concept/node-fullstack` 分支）。
-用户上传/浏览二次创作内容（图片、视频、图文、链接），含评论、投票、通知、管理后台。
+用户上传/浏览二次创作内容（图片、视频、图文、链接），含评论、投票、管理后台。
 
-> 迁移说明：后端已从 Go（`cmd/`、`internal/`）迁移到 Node（`node-server/`）。Node 已实现的功能对应的 Go 代码均已删除；仅 `cmd/server/scheduler.go`、`internal/service/tinify.go`、`internal/util/redis.go` 因 Node 尚未实现对应功能而保留（详见仓库 README「残留 Go 代码」一节）。
+> 迁移说明：后端已从 Go（`cmd/`、`internal/`）完整迁移到 Node（`node-server/`），**无残留 Go 代码**。
 
 **核心约束：前后端端点对齐** — Node 后端的路由、请求参数、响应格式必须与前端 `frontend/src/api/index.ts` 中定义的接口完全一致。以前端契约为准。
 
@@ -31,8 +31,6 @@ frontend/                    # Vue 3 + TypeScript + Vite + Ant Design Vue + Tail
   src/stores/                # Pinia 状态管理
   src/views/                 # 路由页面
 
-cmd/  internal/  go.mod  go.sum   # 残留 Go 代码（见 README「残留 Go 代码」）
-config/                        # 旧 Go 配置（当前后端未使用）
 docker/                        # Docker 相关配置
 assets/                        # 静态资源（默认封面等）
 ```
@@ -146,16 +144,6 @@ docker compose up -d                # 生产部署（端口 9200 -> 3000）
 | POST | `/poll/create` | 是 | `handleCreatePoll` |
 | DELETE | `/poll/:id` | 是 | `handleDeletePoll` |
 
-### 通知 `/api/notifications`（需认证）
-| 方法 | 路径 | Handler |
-|------|------|---------|
-| GET | `/notifications/list` | `handleGetNotifications` |
-| GET | `/notifications/unread-count` | `handleGetUnreadCount` |
-| PUT | `/notifications/:id/read` | `handleMarkAsRead` |
-| PUT | `/notifications/read-all` | `handleMarkAllAsRead` |
-
-> 注：原 `POST /notifications/device` 与 `DELETE /notifications/device/:token`（移动端 JPush 推送设备注册）已从 Node 后端移除，推送（push）相关功能不再保留，仅保留站内通知（in-app notifications）。
-
 ### 管理 `/api/admin`（需认证 + 管理员）
 | 方法 | 路径 | Handler |
 |------|------|---------|
@@ -192,7 +180,7 @@ docker compose up -d                # 生产部署（端口 9200 -> 3000）
 - **分页**: `node-server/src/util/pagination.ts` 解析 `page` / `pageSize`，统一分页响应
 - **认证**: `node-server/src/middleware/auth.ts` 校验 JWT，将用户信息挂到 `req.user`
 - **软删除**: 所有删除在 `contents` / `comments` / `polls` 表写 `deleted_at`，查询加 `WHERE deleted_at IS NULL`（SQLite 用 `IS NULL` 判断）
-- **缓存**: 当前无 Redis；SQLite 直接查询（残留 `internal/util/redis.go` 待 Node 化）
+- **缓存**: 当前无 Redis；SQLite 直接查询
 - **配置**: 通过环境变量（`PORT` / `DB_PATH` / `JWT_SECRET` / `JWT_EXPIRES_IN`），无配置文件
 - **JSON**: Express 内置 `express.json()`
 - **日志**: 结构化 `console` 输出
@@ -230,7 +218,6 @@ docker compose up -d                # 生产部署（端口 9200 -> 3000）
 ## 已知约束
 
 - 后端使用 SQLite（better-sqlite3），单机部署；无 MySQL / Redis
-- 残留 Go 代码：`cmd/server/scheduler.go`（定时任务）、`internal/service/tinify.go`（Tinify 压缩）、`internal/util/redis.go`（Redis 缓存）尚未在 Node 实现
 - 前端用 hash 路由，SEO 不适用
 - `node-server/uploads/`、`node-server/uploads/thumbs/`、`node-server/data/` 目录需可写
 - 视频缩略图依赖 `ffmpeg-static`（随依赖安装，无需系统 FFmpeg）
@@ -246,6 +233,5 @@ docker compose up -d                # 生产部署（端口 9200 -> 3000）
 | Node 路由 | `node-server/src/routes/*.ts` |
 | 数据访问 | `node-server/src/db/index.ts` |
 | 统一响应 | `node-server/src/util/response.ts` |
-| 残留 Go 代码 | `cmd/server/scheduler.go`、`internal/service/tinify.go`、`internal/util/redis.go` |
 | 前端 API 封装 | `frontend/src/api/index.ts` |
 | 前端类型定义 | `frontend/src/types/schemas.ts` |

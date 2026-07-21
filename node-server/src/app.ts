@@ -10,7 +10,6 @@ import authRouter from './routes/auth.js'
 import contentRouter from './routes/content.js'
 import commentRouter from './routes/comment.js'
 import pollRouter from './routes/poll.js'
-import notificationRouter from './routes/notification.js'
 import adminRouter from './routes/admin.js'
 import apiKeyRouter from './routes/apikey.js'
 import { errorHandler, notFound } from './middleware/error.js'
@@ -44,7 +43,6 @@ export function createApp(): express.Express {
   app.use('/api/content', contentRouter)
   app.use('/api/comment', commentRouter)
   app.use('/api/poll', pollRouter)
-  app.use('/api/notifications', notificationRouter)
   app.use('/api/admin', adminRouter)
   app.use('/api/api-keys', apiKeyRouter)
 

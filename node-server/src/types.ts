@@ -106,17 +106,6 @@ export interface Claim {
   updated_at?: string
 }
 
-export interface Notification {
-  id: number
-  user_id: number
-  type: string
-  title: string
-  content: string
-  related_id: number | null
-  is_read: boolean
-  created_at: number
-}
-
 export interface ApiKey {
   id: number
   name: string

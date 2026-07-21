@@ -1,7 +1,6 @@
 import { Router } from 'express'
 import { existsSync, readdirSync, unlinkSync } from 'node:fs'
 import {
-  createNotification,
   decorateClaim,
   decorateContent,
   deleteUser,
@@ -47,13 +46,6 @@ router.post('/audit/:id', validate(auditSchema), (req, res) => {
   const status = req.body.status as string
   const remark = typeof req.body.remark === 'string' ? req.body.remark : ''
   setAuditStatus(id, status)
-  createNotification({
-    userId: row.user_id,
-    type: 'audit',
-    title: status === 'approved' ? '内容已通过审核' : '内容未通过审核',
-    content: remark || (status === 'approved' ? '您的作品已通过审核' : '您的作品未通过审核，请修改后重新提交'),
-    relatedId: id,
-  })
   success(res, decorateContent(getContentRow(id)!), '审核完成')
 })
 

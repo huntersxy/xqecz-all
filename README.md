@@ -2,7 +2,7 @@
 
 小泉动漫二创站 - Node.js + Vue 3 全栈应用
 
-> 分支说明：`concept/node-fullstack` 为 **Node.js 后端分支**。原 Go 后端（`cmd/`、`internal/`）中，凡 Node 后端已实现的功能均已移除；仅剩 Node 尚未实现的功能仍以 Go 代码保留（见文末「残留 Go 代码」）。
+> 分支说明：`concept/node-fullstack` 为 **Node.js 后端分支**，已从原 Go 后端完整迁移至 Node.js，**无残留 Go 代码**。
 
 ## 项目概述
 
@@ -43,7 +43,6 @@ xqecz-all/
 │   │   │   ├── content.ts
 │   │   │   ├── comment.ts
 │   │   │   ├── poll.ts
-│   │   │   ├── notification.ts
 │   │   │   ├── admin.ts
 │   │   │   └── apikey.ts
 │   │   ├── middleware/      # auth / error / rateLimit
@@ -54,10 +53,8 @@ xqecz-all/
 │   ├── data/               # SQLite 数据库文件（gitignore）
 │   └── uploads/            # 用户上传 + 缩略图（gitignore）
 ├── frontend/               # Vue 3 前端
-├── config/                 # 旧 Go 配置（当前后端未使用，保留以备回溯）
 ├── docker/                 # Docker 相关配置
 ├── assets/                 # 静态资源（默认封面等）
-├── cmd/  internal/  go.mod  go.sum   # 残留 Go 代码（见「残留 Go 代码」）
 └── Dockerfile  docker-compose.yml  build.sh  deploy.sh  run.sh  xqecz.bat
 ```
 
@@ -142,7 +139,6 @@ API 遵循 RESTful 风格，所有接口以 `/api` 为前缀。
 - **内容**: `/api/content/*` （list / search / recommend / tags / upload / my / claim / 详情/更新/删除）
 - **评论**: `/api/comment/*` （list / count / add / delete / report）
 - **投票**: `/api/poll/*` （list / 详情 / vote / create / delete）
-- **通知**: `/api/notifications/*` （device / list / unread-count / read）
 - **管理**: `/api/admin/*` （audit / pending / content / claims / comments / users / 缩略图重建）
 - **API 密钥**: `/api/api-keys/*` （create / list / update / delete）
 
@@ -161,18 +157,6 @@ API 遵循 RESTful 风格，所有接口以 `/api` 为前缀。
 - 请求体校验统一走 zod + `validate` 中间件
 - 所有数据库访问集中在 `db/index.ts`（better-sqlite3 参数化查询，防注入）
 - 密码使用 `bcryptjs` 哈希，认证使用 JWT；敏感信息不记录日志
-
-## 残留 Go 代码
-
-本分支已从 Go 后端迁移到 Node 后端。**Node 已实现的功能对应的 Go 代码已全部删除**。以下 Go 文件因 **Node 后端尚未实现对应功能** 而暂时保留，待 Node 补齐后移除：
-
-| 文件 | 功能 | Node 现状 |
-|------|------|-----------|
-| `cmd/server/scheduler.go` | 后台定时任务（推荐列表刷新、Tinify 批量压缩、推送） | 无定时任务机制 |
-| `internal/service/tinify.go` | 调用 Tinify API 压缩图片 | 仅本地 sharp 缩略图，无外部压缩 |
-| `internal/util/redis.go` | Redis 缓存 / 会话 / 推荐 ZSet | 使用 SQLite，无 Redis 缓存层 |
-
-> 这些文件不属于构建产物，不参与 Docker 镜像与 `node-server` 运行；保留仅为功能回溯与后续 Node 化参考。
 
 ## 许可证
 

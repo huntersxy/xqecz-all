@@ -3,7 +3,6 @@ import {
   contentExists,
   createComment,
   createCommentReport,
-  createNotification,
   countComments,
   countTopLevelComments,
   getContentRow,
@@ -72,17 +71,6 @@ router.post('/add', requireAuth, upload.none(), validate(commentAddSchema), (req
     if (!parent) return error(res, 400, '回复的评论不存在')
   }
   const id = createComment({ contentId, userId: req.user!.uid, text: text.trim(), parentId })
-  // notify content owner (unless they commented on their own content)
-  const content = getContentRow(contentId)
-  if (content && content.user_id !== req.user!.uid) {
-    createNotification({
-      userId: content.user_id,
-      type: parentId ? 'reply' : 'comment',
-      title: parentId ? '收到一条回复' : '收到一条新评论',
-      content: text.trim().slice(0, 120),
-      relatedId: contentId,
-    })
-  }
   const row = db
     .prepare('SELECT * FROM comments WHERE id = ? AND deleted_at IS NULL')
     .get(id) as any
