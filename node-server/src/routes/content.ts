@@ -19,6 +19,8 @@ import { success, paginated, error } from '../util/response.js'
 import { requireAuth } from '../middleware/auth.js'
 import { upload, fileUrl } from '../util/media.js'
 import { generateThumbnail } from '../util/thumbnail.js'
+import { validate } from '../validation/validate.js'
+import { uploadSchema, updateContentSchema, claimSchema } from '../validation/schemas.js'
 import type { ContentType } from '../types.js'
 
 const router = Router()
@@ -129,9 +131,8 @@ router.get('/my', requireAuth, (req, res) => {
 })
 
 // ---- upload (auth, multipart) ----
-router.post('/upload', requireAuth, upload.single('file'), async (req, res) => {
-  const { title, type, content, url } = req.body || {}
-  if (!title || !type) return error(res, 400, '标题和类型不能为空')
+router.post('/upload', requireAuth, upload.single('file'), validate(uploadSchema), async (req, res) => {
+  const { title, type, content, url } = req.body
   if (!VALID_TYPES.includes(type as ContentType)) return error(res, 400, '不支持的内容类型')
   const t = type as ContentType
   const file = (req as any).file as Express.Multer.File | undefined
@@ -195,7 +196,7 @@ router.get('/:id', (req, res) => {
 })
 
 // ---- update (auth) ----
-router.put('/:id', requireAuth, upload.single('file'), async (req, res) => {
+router.put('/:id', requireAuth, upload.single('file'), validate(updateContentSchema), async (req, res) => {
   const id = Number(req.params.id)
   const row = getContentRow(id)
   if (!row) return error(res, 404, '内容不存在')
@@ -229,10 +230,10 @@ router.delete('/:id', requireAuth, (req, res) => {
 })
 
 // ---- claim (auth) ----
-router.post('/:content_id/claim', requireAuth, (req, res) => {
+router.post('/:content_id/claim', requireAuth, validate(claimSchema), (req, res) => {
   const contentId = Number(req.params.content_id)
   if (!contentExists(contentId)) return error(res, 404, '内容不存在')
-  const reason = typeof req.body?.reason === 'string' ? req.body.reason : ''
+  const reason = typeof req.body.reason === 'string' ? req.body.reason : ''
   const id = createClaim({ contentId, userId: req.user!.uid, reason })
   success(res, { id }, '认领申请已提交')
 })

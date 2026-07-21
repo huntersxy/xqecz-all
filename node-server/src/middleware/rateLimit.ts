@@ -1,9 +1,11 @@
 import type { Request, Response, NextFunction } from 'express'
+import rateLimitLib from 'express-rate-limit'
 import { error } from '../util/response.js'
 
-// Minimal in-memory fixed-window rate limiter (concept-grade; per IP).
-const buckets = new Map<string, { count: number; resetAt: number }>()
-
+// Drop-in replacement for the old hand-rolled in-memory fixed-window limiter.
+// express-rate-limit handles the windowing, headers, and (with a store) distributed
+// setup. We key per-route via `keyPrefix` + client IP so register/login/init-admin
+// don't share a bucket. Default MemoryStore is fine for a single-instance concept app.
 interface RateLimitOpts {
   windowMs: number
   max: number
@@ -11,19 +13,15 @@ interface RateLimitOpts {
 }
 
 export function rateLimit(opts: RateLimitOpts) {
-  return (req: Request, res: Response, next: NextFunction): void => {
-    const ip = (req.ip || req.socket.remoteAddress || 'unknown') as string
-    const key = `${opts.keyPrefix}:${ip}`
-    const now = Date.now()
-    const bucket = buckets.get(key)
-    if (!bucket || now > bucket.resetAt) {
-      buckets.set(key, { count: 1, resetAt: now + opts.windowMs })
-      return next()
-    }
-    bucket.count += 1
-    if (bucket.count > opts.max) {
-      return error(res, 429, '请求过于频繁，请稍后再试')
-    }
-    next()
-  }
+  return rateLimitLib({
+    windowMs: opts.windowMs,
+    max: opts.max,
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: (req: Request): string =>
+      `${opts.keyPrefix}:${req.ip || req.socket.remoteAddress || 'unknown'}`,
+    handler: (_req: Request, res: Response) => {
+      error(res, 429, '请求过于频繁，请稍后再试')
+    },
+  }) as (req: Request, res: Response, next: NextFunction) => void
 }

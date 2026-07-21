@@ -1,5 +1,7 @@
 import express from 'express'
 import cookieParser from 'cookie-parser'
+import helmet from 'helmet'
+import compression from 'compression'
 import { existsSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -23,6 +25,13 @@ export function createApp(): express.Express {
   app.use(cookieParser())
   app.use(express.json({ limit: '10mb' }))
   app.use(express.urlencoded({ extended: true, limit: '10mb' }))
+
+  // Security headers. CSP is intentionally disabled: the built Vue SPA loads
+  // same-origin ES module scripts (and may rely on inline styles), and a strict
+  // default-src would risk breaking the bundle. Other helmet headers stay on.
+  app.use(helmet({ contentSecurityPolicy: false }))
+  // Gzip compress responses.
+  app.use(compression())
 
   // Media: originals at /uploads, thumbnails at /uploads/thumbs (subdir of UPLOAD_DIR).
   app.use('/uploads', express.static(UPLOAD_DIR))

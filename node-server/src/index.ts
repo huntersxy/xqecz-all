@@ -6,7 +6,7 @@ const PORT = Number(process.env.PORT) || 3000
 
 // Auto-seed a demo environment on first boot so the app is usable immediately.
 if (countUsers() === 0) {
-  seedDemo()
+  await seedDemo()
 }
 
 const app = createApp()

@@ -9,11 +9,15 @@ import {
 import { hashPassword } from './util/security.js'
 
 // Seed a usable demo environment the first time the server boots with an empty DB.
-export function seedDemo(): void {
+export async function seedDemo(): Promise<void> {
   if (countUsers() > 0) return
 
-  const adminId = createUser('admin', hashPassword('admin123'), true)
-  const demoId = createUser('demo', hashPassword('demo123'), false)
+  const [adminHash, demoHash] = await Promise.all([
+    hashPassword('admin123'),
+    hashPassword('demo123'),
+  ])
+  const adminId = createUser('admin', adminHash, true)
+  const demoId = createUser('demo', demoHash, false)
 
   const samples: Array<{
     title: string

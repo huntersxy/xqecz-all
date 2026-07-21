@@ -13,6 +13,8 @@ import { parsePagination, parseTags } from '../util/pagination.js'
 import { success, paginated, error } from '../util/response.js'
 import { optionalAuth, requireAuth } from '../middleware/auth.js'
 import { randomToken } from '../util/security.js'
+import { validate } from '../validation/validate.js'
+import { pollCreateSchema, pollVoteSchema } from '../validation/schemas.js'
 
 const router = Router()
 
@@ -57,11 +59,11 @@ router.get('/:id', optionalAuth, (req, res) => {
 })
 
 // vote (optional auth)
-router.post('/:id/vote', optionalAuth, (req, res) => {
+router.post('/:id/vote', optionalAuth, validate(pollVoteSchema), (req, res) => {
   const id = Number(req.params.id)
   const row = getPollRow(id)
   if (!row) return error(res, 404, '投票不存在')
-  const optionIndex = Number(req.body?.option_index)
+  const optionIndex = Number(req.body.option_index)
   const options: string[] = parseTags(row.options)
   if (!Number.isInteger(optionIndex) || optionIndex < 0 || optionIndex >= options.length)
     return error(res, 400, '选项不存在')
@@ -81,16 +83,10 @@ router.post('/:id/vote', optionalAuth, (req, res) => {
 })
 
 // create (auth)
-router.post('/create', requireAuth, (req, res) => {
-  const { title, description, options } = req.body || {}
+router.post('/create', requireAuth, validate(pollCreateSchema), (req, res) => {
+  const { title, description, options } = req.body
   if (!title || !title.trim()) return error(res, 400, '投票标题不能为空')
-  let opts: string[] = []
-  if (Array.isArray(options)) opts = options.filter((o) => typeof o === 'string' && o.trim())
-  else if (typeof options === 'string')
-    opts = options
-      .split('\n')
-      .map((s) => s.trim())
-      .filter(Boolean)
+  const opts = options as string[]
   if (opts.length < 2) return error(res, 400, '至少需要两个选项')
   const id = createPoll({
     title: title.trim(),

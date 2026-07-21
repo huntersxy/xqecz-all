@@ -26,19 +26,26 @@ import { success, paginated, error } from '../util/response.js'
 import { requireAdmin, requireAuth } from '../middleware/auth.js'
 import { UPLOAD_DIR, THUMB_DIR } from '../util/media.js'
 import { generateThumbnail } from '../util/thumbnail.js'
+import { validate } from '../validation/validate.js'
+import {
+  auditSchema,
+  authorSchema,
+  roleSchema,
+  banSchema,
+  claimHandleSchema,
+} from '../validation/schemas.js'
 import type { ClaimStatus, CommentReport as CommentReportType } from '../types.js'
 
 const router = Router()
 router.use(requireAuth, requireAdmin)
 
 // Audit a content item.
-router.post('/audit/:id', (req, res) => {
+router.post('/audit/:id', validate(auditSchema), (req, res) => {
   const id = Number(req.params.id)
   const row = getContentRow(id)
   if (!row) return error(res, 404, '内容不存在')
-  const status = req.body?.status as string
-  if (status !== 'approved' && status !== 'rejected') return error(res, 400, 'status 必须是 approved 或 rejected')
-  const remark = typeof req.body?.remark === 'string' ? req.body.remark : ''
+  const status = req.body.status as string
+  const remark = typeof req.body.remark === 'string' ? req.body.remark : ''
   setAuditStatus(id, status)
   createNotification({
     userId: row.user_id,
@@ -92,10 +99,10 @@ router.get('/content/all', (req, res) => {
 })
 
 // Change content author.
-router.put('/content/:id/author', (req, res) => {
+router.put('/content/:id/author', validate(authorSchema), (req, res) => {
   const id = Number(req.params.id)
   if (!getContentRow(id)) return error(res, 404, '内容不存在')
-  const newUserId = Number(req.body?.user_id)
+  const newUserId = Number(req.body.user_id)
   const newUser = db.prepare('SELECT id, username FROM users WHERE id = ?').get(newUserId) as
     | { id: number; username: string }
     | undefined
@@ -209,9 +216,9 @@ router.get('/users', (req, res) => {
 })
 
 // Update user role.
-router.put('/users/:id/role', (req, res) => {
+router.put('/users/:id/role', validate(roleSchema), (req, res) => {
   const id = Number(req.params.id)
-  const isAdmin = req.body?.is_admin === true || req.body?.is_admin === 'true'
+  const isAdmin = req.body.is_admin === true
   const u = db.prepare('SELECT id FROM users WHERE id = ?').get(id)
   if (!u) return error(res, 404, '用户不存在')
   updateUserRole(id, isAdmin)
@@ -227,9 +234,9 @@ router.put('/users/:id/role', (req, res) => {
 })
 
 // Ban / unban user.
-router.put('/users/:id/ban', (req, res) => {
+router.put('/users/:id/ban', validate(banSchema), (req, res) => {
   const id = Number(req.params.id)
-  const isBanned = req.body?.is_banned === true || req.body?.is_banned === 'true'
+  const isBanned = req.body.is_banned === true
   const u = db.prepare('SELECT id FROM users WHERE id = ?').get(id)
   if (!u) return error(res, 404, '用户不存在')
   if (isBanned && req.user!.uid === id) return error(res, 400, '不能封禁自己')
@@ -296,12 +303,11 @@ router.get('/claims', (req, res) => {
 })
 
 // Handle a claim.
-router.post('/claims/:id/handle', (req, res) => {
+router.post('/claims/:id/handle', validate(claimHandleSchema), (req, res) => {
   const id = Number(req.params.id)
   if (!getClaim(id)) return error(res, 404, '认领申请不存在')
-  const action = req.body?.action as 'approve' | 'reject'
-  if (action !== 'approve' && action !== 'reject') return error(res, 400, 'action 必须是 approve 或 reject')
-  const remark = typeof req.body?.remark === 'string' ? req.body.remark : ''
+  const action = req.body.action as 'approve' | 'reject'
+  const remark = typeof req.body.remark === 'string' ? req.body.remark : ''
   handleClaim(id, action, remark, req.user!.uid)
   success(res, null, '认领已处理')
 })

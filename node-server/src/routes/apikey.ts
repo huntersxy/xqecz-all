@@ -10,16 +10,16 @@ import {
 import { success, error } from '../util/response.js'
 import { requireAuth } from '../middleware/auth.js'
 import { generateApiKey } from '../util/security.js'
+import { validate } from '../validation/validate.js'
+import { apiKeyCreateSchema, apiKeyUpdateSchema } from '../validation/schemas.js'
 
 const router = Router()
 router.use(requireAuth)
 
 // Create a new API key (raw key returned only once).
-router.post('/', (req, res) => {
-  const name = (req.body?.name as string) || 'default'
-  const permissions = Array.isArray(req.body?.permissions)
-    ? req.body.permissions.filter((p: unknown) => typeof p === 'string')
-    : []
+router.post('/', validate(apiKeyCreateSchema), (req, res) => {
+  const name = (req.body.name as string) || 'default'
+  const permissions = Array.isArray(req.body.permissions) ? req.body.permissions : []
   const { raw, prefix, hash } = generateApiKey()
   const id = createApiKey({ userId: req.user!.uid, name, permissions, prefix, hash })
   const row = getApiKeyRow(id, req.user!.uid)
@@ -38,16 +38,14 @@ router.get('/', (req, res) => {
 })
 
 // Update a key.
-router.put('/:id', (req, res) => {
+router.put('/:id', validate(apiKeyUpdateSchema), (req, res) => {
   const id = Number(req.params.id)
   const row = getApiKeyRow(id, req.user!.uid)
   if (!row) return error(res, 404, '密钥不存在')
   updateApiKey(id, req.user!.uid, {
-    name: typeof req.body?.name === 'string' ? req.body.name : undefined,
-    permissions: Array.isArray(req.body?.permissions)
-      ? req.body.permissions.filter((p: unknown) => typeof p === 'string')
-      : undefined,
-    is_active: typeof req.body?.is_active === 'boolean' ? req.body.is_active : undefined,
+    name: typeof req.body.name === 'string' && req.body.name ? req.body.name : undefined,
+    permissions: Array.isArray(req.body.permissions) ? req.body.permissions : undefined,
+    is_active: typeof req.body.is_active === 'boolean' ? req.body.is_active : undefined,
   })
   success(res, decorateApiKey(getApiKeyRow(id, req.user!.uid)!))
 })

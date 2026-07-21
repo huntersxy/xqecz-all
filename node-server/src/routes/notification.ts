@@ -11,13 +11,14 @@ import {
 import { parsePagination } from '../util/pagination.js'
 import { success, error } from '../util/response.js'
 import { requireAuth } from '../middleware/auth.js'
+import { validate } from '../validation/validate.js'
+import { deviceSchema } from '../validation/schemas.js'
 
 const router = Router()
 
 // Register a push device token.
-router.post('/device', requireAuth, (req, res) => {
-  const { token, platform, device_info } = req.body || {}
-  if (!token) return error(res, 400, 'device token 不能为空')
+router.post('/device', requireAuth, validate(deviceSchema), (req, res) => {
+  const { token, platform, device_info } = req.body
   registerDevice({
     userId: req.user!.uid,
     token: String(token),

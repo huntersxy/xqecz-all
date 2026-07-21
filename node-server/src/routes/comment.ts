@@ -18,6 +18,8 @@ import { parsePagination, parseTags } from '../util/pagination.js'
 import { success, paginated, error } from '../util/response.js'
 import { requireAuth } from '../middleware/auth.js'
 import { upload } from '../util/media.js'
+import { validate } from '../validation/validate.js'
+import { commentAddSchema, commentReportSchema } from '../validation/schemas.js'
 import type { Comment, CommentReport as CommentReportType } from '../types.js'
 
 const router = Router()
@@ -58,10 +60,10 @@ router.get('/count/:content_id', (req, res) => {
 })
 
 // add
-router.post('/add', requireAuth, upload.none(), (req, res) => {
-  const contentId = Number(req.body?.content_id)
-  const text = req.body?.text as string
-  const parentIdRaw = req.body?.parent_id
+router.post('/add', requireAuth, upload.none(), validate(commentAddSchema), (req, res) => {
+  const contentId = Number(req.body.content_id)
+  const text = req.body.text as string
+  const parentIdRaw = req.body.parent_id
   const parentId = parentIdRaw !== undefined && parentIdRaw !== '' ? Number(parentIdRaw) : null
   if (!contentExists(contentId)) return error(res, 404, '内容不存在')
   if (!text || !text.trim()) return error(res, 400, '评论内容不能为空')
@@ -99,9 +101,9 @@ router.delete('/:id', requireAuth, (req, res) => {
 })
 
 // report
-router.post('/report', requireAuth, upload.none(), (req, res) => {
-  const commentId = Number(req.body?.comment_id)
-  const reason = (req.body?.reason as string) || ''
+router.post('/report', requireAuth, upload.none(), validate(commentReportSchema), (req, res) => {
+  const commentId = Number(req.body.comment_id)
+  const reason = (req.body.reason as string) || ''
   const comment = db.prepare('SELECT * FROM comments WHERE id = ? AND deleted_at IS NULL').get(commentId) as any
   if (!comment) return error(res, 404, '评论不存在')
   const id = createCommentReport({ commentId, userId: req.user!.uid, reason })
