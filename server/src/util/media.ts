@@ -6,11 +6,11 @@ import { fileURLToPath } from 'node:url'
 import { dirname } from 'node:path'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-// Uploads live in node-server/uploads (gitignored). Served at /uploads.
+// Uploads live in server/uploads (gitignored). Served at /uploads.
 export const UPLOAD_DIR = resolve(__dirname, '..', '..', 'uploads')
 if (!existsSync(UPLOAD_DIR)) mkdirSync(UPLOAD_DIR, { recursive: true })
 
-// Thumbnails live in node-server/uploads/thumbs, served at /uploads/thumbs.
+// Thumbnails live in server/uploads/thumbs, served at /uploads/thumbs.
 // Keeping them in a dedicated subdir makes cleanup / orphan-scanning unambiguous.
 export const THUMB_DIR = resolve(UPLOAD_DIR, 'thumbs')
 if (!existsSync(THUMB_DIR)) mkdirSync(THUMB_DIR, { recursive: true })

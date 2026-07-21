@@ -11,25 +11,25 @@ RUN npm run build
 
 # Stage 2: 后端构建 (TypeScript -> JavaScript)
 FROM ${NODE_IMAGE} AS backend-builder
-WORKDIR /app/node-server
-COPY node-server/package.json node-server/package-lock.json ./
+WORKDIR /app/server
+COPY server/package.json server/package-lock.json ./
 RUN npm ci
-COPY node-server/ ./
+COPY server/ ./
 RUN npm run build && npm prune --omit=dev
 
 # Stage 3: 运行阶段
 FROM ${NODE_IMAGE} AS runtime
 WORKDIR /app
 # 后端运行产物 + 生产依赖
-COPY --from=backend-builder /app/node-server/dist ./node-server/dist
-COPY --from=backend-builder /app/node-server/node_modules ./node-server/node_modules
-COPY --from=backend-builder /app/node-server/package.json ./node-server/package.json
+COPY --from=backend-builder /app/server/dist ./server/dist
+COPY --from=backend-builder /app/server/node_modules ./server/node_modules
+COPY --from=backend-builder /app/server/package.json ./server/package.json
 # 前端产物（由后端同源托管）
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 # 运行时目录（SQLite 数据库 + 上传文件）
-RUN mkdir -p /app/node-server/data /app/node-server/uploads /app/node-server/uploads/thumbs
+RUN mkdir -p /app/server/data /app/server/uploads /app/server/uploads/thumbs
 ENV PORT=3000 \
-    DB_PATH=/app/node-server/data/app.db \
+    DB_PATH=/app/server/data/app.db \
     TZ=Asia/Shanghai
 EXPOSE 3000
-CMD ["node", "node-server/dist/index.js"]
+CMD ["node", "server/dist/index.js"]

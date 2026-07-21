@@ -5,12 +5,13 @@
 set -e
 
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
+REPO_ROOT=$(cd "$SCRIPT_DIR/.." && pwd)
 echo "=== xqecz-all 一键部署 (Node) ==="
 
 export HOME=${HOME:-/root}
 export PATH=$PATH:/usr/local/bin:/usr/local/node/bin:$HOME/.nvm/versions/node/*/bin
 
-cd "$SCRIPT_DIR"
+cd "$REPO_ROOT"
 
 # 1. 拉取代码
 echo ""
@@ -31,7 +32,7 @@ echo "✓ 前端构建完成"
 # 3. 构建后端
 echo ""
 echo "=== 3. 构建后端 (Node) ==="
-cd node-server
+cd server
 if [ ! -d "node_modules" ]; then npm install; fi
 npm run build
 cd ..
@@ -44,4 +45,4 @@ echo "=== 4. 重启服务 ==="
 
 echo ""
 echo "=== 部署完成 ==="
-echo "查看日志: tail -f node-server/logs/server.log"
+echo "查看日志: tail -f server/logs/server.log"

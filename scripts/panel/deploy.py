@@ -120,7 +120,7 @@ class DeployManager:
 
     def build_backend(self) -> tuple[bool, str]:
         """构建后端 (Node.js)"""
-        backend_dir = self.project_dir / "node-server"
+        backend_dir = self.project_dir / "server"
         if not (backend_dir / "node_modules").exists():
             success, output = self._run_with_output("npm install", cwd=backend_dir)
             if not success:
@@ -156,9 +156,9 @@ class DeployManager:
         # 确保日志目录存在
         self.log_file.parent.mkdir(parents=True, exist_ok=True)
 
-        server_bin = self.project_dir / "node-server" / "dist" / "index.js"
+        server_bin = self.project_dir / "server" / "dist" / "index.js"
         if not server_bin.exists():
-            return False, "服务产物不存在 (node-server/dist/index.js)，请先构建"
+            return False, "服务产物不存在 (server/dist/index.js)，请先构建"
 
         # 启动服务
         with open(self.log_file, "a") as log_f:

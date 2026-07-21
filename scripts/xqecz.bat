@@ -4,7 +4,7 @@ setlocal
 
 set REMOTE=http://8.134.190.23:9300
 set API_KEY=vqtDMIEprDUvY9I-DhG7_J3ITPNyguzeuTjqjNQB8N0
-set PANEL_DIR=%~dp0xqecz-panel
+set PANEL_DIR=%~dp0scripts\panel
 
 :menu
 cls

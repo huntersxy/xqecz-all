@@ -19,7 +19,7 @@ import type {
 import { parseTags } from '../util/pagination.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-// Persist the sqlite file inside node-server/data (gitignored).
+// Persist the sqlite file inside server/data (gitignored).
 const DATA_DIR = resolve(__dirname, '..', '..', 'data')
 const DB_PATH = process.env.DB_PATH || resolve(DATA_DIR, 'app.db')
 

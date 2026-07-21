@@ -10,7 +10,7 @@
 
 ## 技术栈
 
-### 后端 (`node-server/`)
+### 后端 (`server/`)
 - **运行时**: Node.js 22 (LTS)
 - **语言**: TypeScript 5
 - **Web 框架**: [Express](https://expressjs.com/) 4
@@ -33,7 +33,7 @@
 
 ```
 xqecz-all/
-├── node-server/            # Node.js + TypeScript 后端（当前后端实现）
+├── server/            # Node.js + TypeScript 后端（当前后端实现）
 │   ├── src/
 │   │   ├── index.ts        # 入口，监听端口、首启自动 seed
 │   │   ├── app.ts          # Express 应用装配（中间件 + 路由 + 静态托管）
@@ -53,9 +53,11 @@ xqecz-all/
 │   ├── data/               # SQLite 数据库文件（gitignore）
 │   └── uploads/            # 用户上传 + 缩略图（gitignore）
 ├── frontend/               # Vue 3 前端
-├── docker/                 # Docker 相关配置
+├── scripts/                # 部署 / 运维脚本（build / deploy / run / panel）
 ├── assets/                 # 静态资源（默认封面等）
-└── Dockerfile  docker-compose.yml  build.sh  deploy.sh  run.sh  xqecz.bat
+├── Dockerfile              # Node 容器构建
+├── docker-compose.yml      # Node 容器部署（端口 9200 -> 3000）
+└── .dockerignore
 ```
 
 ## 快速开始
@@ -75,7 +77,7 @@ cd xqecz-all
 
 2. **启动后端（端口 3000）**
 ```bash
-cd node-server
+cd server
 npm install
 npm run dev        # tsx watch，热重载
 ```
@@ -97,13 +99,13 @@ npm run dev
 
 ```bash
 # 后端编译 TS -> JS
-cd node-server && npm install && npm run build   # 产物在 node-server/dist
+cd server && npm install && npm run build   # 产物在 server/dist
 
 # 前端构建
 cd ../frontend && npm install && npm run build   # 产物在 frontend/dist（由后端同源托管）
 
 # 运行后端
-node node-server/dist/index.js
+node server/dist/index.js
 # 或者使用脚本： ./run.sh start
 ```
 
@@ -123,11 +125,11 @@ docker compose up -d
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
 | `PORT` | `3000` | 监听端口 |
-| `DB_PATH` | `node-server/data/app.db` | SQLite 数据库文件路径 |
+| `DB_PATH` | `server/data/app.db` | SQLite 数据库文件路径 |
 | `JWT_SECRET` | `xqecz-concept-secret-change-me` | JWT 签名密钥（生产务必修改） |
 | `JWT_EXPIRES_IN` | `7d` | JWT 有效期 |
 
-上传文件与缩略图位于 `node-server/uploads/`（原图）与 `node-server/uploads/thumbs/`（缩略图），由后端以 `/uploads` 静态托管。
+上传文件与缩略图位于 `server/uploads/`（原图）与 `server/uploads/thumbs/`（缩略图），由后端以 `/uploads` 静态托管。
 
 ## API 文档
 
@@ -146,10 +148,10 @@ API 遵循 RESTful 风格，所有接口以 `/api` 为前缀。
 
 ### 新增一个 API 端点
 
-1. 在 `node-server/src/db/index.ts` 中按需建表 / 新增数据访问函数
-2. 在对应的 `node-server/src/routes/*.ts` 中新增路由（参数校验 → 调用 db → 统一响应）
-3. 在 `node-server/src/validation/schemas.ts` 中补充 zod schema
-4. 如涉及新中间件，在 `node-server/src/middleware/` 中新增
+1. 在 `server/src/db/index.ts` 中按需建表 / 新增数据访问函数
+2. 在对应的 `server/src/routes/*.ts` 中新增路由（参数校验 → 调用 db → 统一响应）
+3. 在 `server/src/validation/schemas.ts` 中补充 zod schema
+4. 如涉及新中间件，在 `server/src/middleware/` 中新增
 
 ### 代码规范
 

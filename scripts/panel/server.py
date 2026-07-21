@@ -41,10 +41,19 @@ def get_api_key() -> str:
     return config["api_key"]
 
 
+def find_project_root() -> Path:
+    """向上查找仓库根目录（以 Dockerfile 为标记，与脚本实际位置无关）"""
+    d = Path(__file__).resolve().parent
+    for parent in [d, *d.parents]:
+        if (parent / "Dockerfile").exists():
+            return parent
+    return d.parent
+
+
 def get_project_dir() -> str:
     """获取项目目录"""
     config = load_config()
-    return config.get("project_dir", str(Path(__file__).parent.parent))
+    return config.get("project_dir", str(find_project_root()))
 
 
 # 初始化
@@ -119,10 +128,10 @@ async def deploy(x_api_key: Optional[str] = Header(None)):
         yield from stream_output("cd frontend && npm run build", cwd=project_dir)
 
         yield "\n[STEP 3] Building backend...\n"
-        yield from stream_output("cd node-server && npm ci && npm run build", cwd=project_dir)
+        yield from stream_output("cd server && npm ci && npm run build", cwd=project_dir)
 
         yield "\n[STEP 4] Preparing runtime dirs...\n"
-        yield from stream_output("mkdir -p dist/logs node-server/uploads/thumbs node-server/data", cwd=project_dir)
+        yield from stream_output("mkdir -p dist/logs server/uploads/thumbs server/data", cwd=project_dir)
 
         yield "\n[STEP 5] Restarting service...\n"
         pid_file = Path(project_dir) / "dist" / "logs" / "server.pid"
@@ -133,7 +142,7 @@ async def deploy(x_api_key: Optional[str] = Header(None)):
             time.sleep(2)
         else:
             yield "Starting new service...\n"
-        yield from stream_output("nohup node node-server/dist/index.js >> dist/logs/server.log 2>&1 & echo $! > dist/logs/server.pid", cwd=project_dir)
+        yield from stream_output("nohup node server/dist/index.js >> dist/logs/server.log 2>&1 & echo $! > dist/logs/server.pid", cwd=project_dir)
 
         yield "\n[DONE] Deploy completed!\n"
 
@@ -152,10 +161,10 @@ async def build(x_api_key: Optional[str] = Header(None)):
         yield from stream_output("cd frontend && npm run build", cwd=project_dir)
 
         yield "\n[STEP 2] Building backend...\n"
-        yield from stream_output("cd node-server && npm ci && npm run build", cwd=project_dir)
+        yield from stream_output("cd server && npm ci && npm run build", cwd=project_dir)
 
         yield "\n[STEP 3] Preparing runtime dirs...\n"
-        yield from stream_output("mkdir -p dist/logs node-server/uploads/thumbs node-server/data", cwd=project_dir)
+        yield from stream_output("mkdir -p dist/logs server/uploads/thumbs server/data", cwd=project_dir)
 
         yield "\n[DONE] Build completed!\n"
 
@@ -222,7 +231,7 @@ async def update_config(data: dict, x_api_key: Optional[str] = Header(None)):
 
     # 更新 deploy_manager
     global deploy_manager
-    deploy_manager = DeployManager(config.get("project_dir", str(Path(__file__).parent.parent)))
+    deploy_manager = DeployManager(config.get("project_dir", str(find_project_root())))
 
     return Response(success=True, message="配置已更新")
 

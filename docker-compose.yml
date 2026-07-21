@@ -21,10 +21,10 @@ services:
     environment:
       - TZ=Asia/Shanghai
       - PORT=3000
-      - DB_PATH=/app/node-server/data/app.db
+      - DB_PATH=/app/server/data/app.db
       - JWT_SECRET=${JWT_SECRET:-please-change-in-prod}
     volumes:
-      - ./docker_data/uploads:/app/node-server/uploads
+      - ./docker_data/uploads:/app/server/uploads
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/api/health"]
       interval: 30s

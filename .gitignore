@@ -1,51 +1,8 @@
-# Binaries
-*.exe
-*.exe~
-*.dll
-*.so
-*.dylib
-/server
+# ===== 本地项目状态 / 工具目录（不入库） =====
+.workbuddy/
 
-# Test binary, built with `go test -c`
-*.test
-
-# Output of the go coverage tool
-*.out
-
-# Go workspace file
-go.work
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Node
-frontend/node_modules/
-frontend/dist/
-frontend/.vite/
-
-# Docker
+# ===== 运行时数据（SQLite 库 + 上传文件，容器内挂载） =====
 docker_data/
 
-# Uploads
-uploads/
-thumbnails/
-images/
-
-# Config (keep example)
-config/config.yaml
-!config/config.example.yaml
-
-# Logs
+# ===== 日志 =====
 *.log
-
-# Temporary files
-*.tmp
-*.bak

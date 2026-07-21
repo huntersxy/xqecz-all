@@ -15,10 +15,10 @@ Thumbs.db
 # Node (前端 + 后端均使用 npm ci 重新安装，避免带入本地 node_modules)
 frontend/node_modules
 frontend/dist
-node-server/node_modules
-node-server/dist
-node-server/data
-node-server/uploads
+server/node_modules
+server/dist
+server/data
+server/uploads
 
 # Docker
 docker_data

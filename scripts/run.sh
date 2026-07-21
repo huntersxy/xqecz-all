@@ -8,7 +8,8 @@
 #   ./run.sh status   # 查看状态
 
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
-APP_DIR="$SCRIPT_DIR/node-server"
+REPO_ROOT=$(cd "$SCRIPT_DIR/.." && pwd)
+APP_DIR="$REPO_ROOT/server"
 PID_FILE="$APP_DIR/logs/server.pid"
 LOG_FILE="$APP_DIR/logs/server.log"
 BIN="$APP_DIR/dist/index.js"

@@ -5,14 +5,14 @@
 小泉动漫二创站 — Node.js + TypeScript + Express 后端 + Vue 3 全栈应用（`concept/node-fullstack` 分支）。
 用户上传/浏览二次创作内容（图片、视频、图文、链接），含评论、投票、管理后台。
 
-> 迁移说明：后端已从 Go（`cmd/`、`internal/`）完整迁移到 Node（`node-server/`），**无残留 Go 代码**。
+> 迁移说明：后端已从 Go（`cmd/`、`internal/`）完整迁移到 Node（`server/`），**无残留 Go 代码**。
 
 **核心约束：前后端端点对齐** — Node 后端的路由、请求参数、响应格式必须与前端 `frontend/src/api/index.ts` 中定义的接口完全一致。以前端契约为准。
 
 ## 目录结构
 
 ```
-node-server/                 # Node.js + TypeScript 后端（当前后端实现）
+server/                 # Node.js + TypeScript 后端（当前后端实现）
   src/
     index.ts                 # 入口：监听端口、首启自动 seed
     app.ts                   # Express 装配（中间件 + 路由 + 静态托管）
@@ -31,8 +31,12 @@ frontend/                    # Vue 3 + TypeScript + Vite + Ant Design Vue + Tail
   src/stores/                # Pinia 状态管理
   src/views/                 # 路由页面
 
-docker/                        # Docker 相关配置
-assets/                        # 静态资源（默认封面等）
+scripts/                     # 部署 / 运维脚本（build / deploy / run / panel）
+  build.sh  deploy.sh  run.sh   # 构建 / 一键部署 / 运行（路径以脚本自身定位仓库根）
+  xqecz.bat                  # Windows 一键部署菜单（调用 scripts/panel）
+  panel/                     # Python 部署管理面板（FastAPI + CLI）
+assets/                      # 静态资源（默认封面等）
+Dockerfile  docker-compose.yml  .dockerignore   # Node 容器部署（端口 9200 -> 3000）
 ```
 
 ## Rust 源码参考
@@ -51,13 +55,13 @@ src/
   scheduler.rs         # 定时任务（推荐列表、tinify、推送）
 ```
 
-移植时参考 Rust 的 `handlers/` 和 `services/` 实现对应的 Node 版本（`node-server/src/routes/`）。
+移植时参考 Rust 的 `handlers/` 和 `services/` 实现对应的 Node 版本（`server/src/routes/`）。
 
 ## 构建与测试命令
 
 ```bash
 # 后端 (Node.js)
-cd node-server
+cd server
 npm install
 npm run dev        # tsx watch 热重载（端口 3000）
 npm run build      # tsc 编译到 dist/
@@ -81,9 +85,9 @@ docker compose up -d                # 生产部署（端口 9200 -> 3000）
 
 | 层 | 职责 | 文件位置 |
 |---|---|---|
-| `routes/` | 参数校验、AuthUser 校验、调用 db 函数、返回响应（handler + service + repo 一体） | `node-server/src/routes/` |
-| `db/` | SQLite 连接、建表、所有数据访问函数（better-sqlite3 参数化查询） | `node-server/src/db/index.ts` |
-| `util/` | 无状态工具函数（media / pagination / response / security / thumbnail），跨层复用 | `node-server/src/util/` |
+| `routes/` | 参数校验、AuthUser 校验、调用 db 函数、返回响应（handler + service + repo 一体） | `server/src/routes/` |
+| `db/` | SQLite 连接、建表、所有数据访问函数（better-sqlite3 参数化查询） | `server/src/db/index.ts` |
+| `util/` | 无状态工具函数（media / pagination / response / security / thumbnail），跨层复用 | `server/src/util/` |
 
 - `routes/` 内禁止直接拼接 SQL，所有 DB 操作在 `db/index.ts`
 - `util/response.ts` 提供 `success` / `error` / `paginated` 等统一响应
@@ -100,7 +104,7 @@ docker compose up -d                # 生产部署（端口 9200 -> 3000）
 
 ## API 端点对照表
 
-路由前缀 `/api/`，RESTful 风格。以下为已注册的完整端点（Node 版实现位于 `node-server/src/routes/`）；表中 "Handler" 列为 Go 时代的标识符，对应实现见同名路由文件（`routes/*.ts`）。
+路由前缀 `/api/`，RESTful 风格。以下为已注册的完整端点（Node 版实现位于 `server/src/routes/`）；表中 "Handler" 列为 Go 时代的标识符，对应实现见同名路由文件（`routes/*.ts`）。
 
 ### 认证 `/api/auth`
 | 方法 | 路径 | 认证 | Handler |
@@ -176,9 +180,9 @@ docker compose up -d                # 生产部署（端口 9200 -> 3000）
 
 ### 后端 (Node.js)
 
-- **响应格式**: 统一 `{ code, message, data }`，用 `node-server/src/util/response.ts` 的 `success` / `error` / `paginated`
-- **分页**: `node-server/src/util/pagination.ts` 解析 `page` / `pageSize`，统一分页响应
-- **认证**: `node-server/src/middleware/auth.ts` 校验 JWT，将用户信息挂到 `req.user`
+- **响应格式**: 统一 `{ code, message, data }`，用 `server/src/util/response.ts` 的 `success` / `error` / `paginated`
+- **分页**: `server/src/util/pagination.ts` 解析 `page` / `pageSize`，统一分页响应
+- **认证**: `server/src/middleware/auth.ts` 校验 JWT，将用户信息挂到 `req.user`
 - **软删除**: 所有删除在 `contents` / `comments` / `polls` 表写 `deleted_at`，查询加 `WHERE deleted_at IS NULL`（SQLite 用 `IS NULL` 判断）
 - **缓存**: 当前无 Redis；SQLite 直接查询
 - **配置**: 通过环境变量（`PORT` / `DB_PATH` / `JWT_SECRET` / `JWT_EXPIRES_IN`），无配置文件
@@ -198,11 +202,11 @@ docker compose up -d                # 生产部署（端口 9200 -> 3000）
 ## 开发工作流
 
 添加新功能的顺序：
-1. `node-server/src/db/index.ts` — 建表 / 新增数据访问函数
-2. `node-server/src/validation/schemas.ts` — 定义 zod 请求校验 schema
-3. `node-server/src/routes/*.ts` — 新增路由（参数校验 → 调用 db → 统一响应）
-4. 如需复用逻辑，放入 `node-server/src/util/`
-5. 中间件放入 `node-server/src/middleware/`
+1. `server/src/db/index.ts` — 建表 / 新增数据访问函数
+2. `server/src/validation/schemas.ts` — 定义 zod 请求校验 schema
+3. `server/src/routes/*.ts` — 新增路由（参数校验 → 调用 db → 统一响应）
+4. 如需复用逻辑，放入 `server/src/util/`
+5. 中间件放入 `server/src/middleware/`
 
 **关键**: 实现路由时必须对照前端 `frontend/src/api/index.ts` 中的接口定义，确保请求参数名、响应字段名完全一致。
 
@@ -212,14 +216,14 @@ docker compose up -d                # 生产部署（端口 9200 -> 3000）
   - `docker compose build` — 多阶段构建
   - `docker compose up -d` — 生产部署（端口 `${XQ_APP_PORT:-9200}` → 容器 3000）
 - 健康检查: `http://localhost:3000/api/health`
-- 数据持久化: `./docker_data/uploads` 挂载到 `node-server/uploads`
-- 数据库为 SQLite 文件 `node-server/data/app.db`（容器内）
+- 数据持久化: `./docker_data/uploads` 挂载到 `server/uploads`
+- 数据库为 SQLite 文件 `server/data/app.db`（容器内）
 
 ## 已知约束
 
 - 后端使用 SQLite（better-sqlite3），单机部署；无 MySQL / Redis
 - 前端用 hash 路由，SEO 不适用
-- `node-server/uploads/`、`node-server/uploads/thumbs/`、`node-server/data/` 目录需可写
+- `server/uploads/`、`server/uploads/thumbs/`、`server/data/` 目录需可写
 - 视频缩略图依赖 `ffmpeg-static`（随依赖安装，无需系统 FFmpeg）
 
 ## 关键文件速查
@@ -229,9 +233,9 @@ docker compose up -d                # 生产部署（端口 9200 -> 3000）
 | Rust 参考（路由） | `E:\Code\xqdm\xiaoquan-backend\src\main.rs` |
 | Rust 参考（handler） | `E:\Code\xqdm\xiaoquan-backend\src\handlers/*.rs` |
 | Rust 参考（service） | `E:\Code\xqdm\xiaoquan-backend\src\services/*.rs` |
-| Node 入口 | `node-server/src/index.ts` |
-| Node 路由 | `node-server/src/routes/*.ts` |
-| 数据访问 | `node-server/src/db/index.ts` |
-| 统一响应 | `node-server/src/util/response.ts` |
+| Node 入口 | `server/src/index.ts` |
+| Node 路由 | `server/src/routes/*.ts` |
+| 数据访问 | `server/src/db/index.ts` |
+| 统一响应 | `server/src/util/response.ts` |
 | 前端 API 封装 | `frontend/src/api/index.ts` |
 | 前端类型定义 | `frontend/src/types/schemas.ts` |
