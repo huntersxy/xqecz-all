@@ -40,7 +40,7 @@ router.post('/register', rateLimit({ windowMs: 60_000, max: 10, keyPrefix: 'reg'
   const id = createUser(username, hashPassword(password), false)
   const token = signToken({ uid: id, is_admin: false })
   setAuthCookie(res, token)
-  success(res, { user_id: id }, '注册成功')
+  success(res, { user_id: id }, '注册成功', 201)
 })
 
 router.post('/login', rateLimit({ windowMs: 60_000, max: 20, keyPrefix: 'login' }), (req, res) => {

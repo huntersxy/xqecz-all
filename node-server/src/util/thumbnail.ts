@@ -1,7 +1,7 @@
 import sharp from 'sharp'
 import ffmpegPath from 'ffmpeg-static'
 import { spawn } from 'node:child_process'
-import { existsSync, unlinkSync } from 'node:fs'
+import { existsSync, unlinkSync, statSync } from 'node:fs'
 import { join, extname } from 'node:path'
 import { randomBytes } from 'node:crypto'
 import { UPLOAD_DIR } from './media.js'
@@ -59,10 +59,10 @@ async function videoThumbnail(
     return null
   }
   const tmpPng = outPath.replace(/\.webp$/, '.png')
-  const ok = await extractFrame(ffmpegPath, src, tmpPng, '1')
+  const ok = await extractFrame(ffmpegPath, src, tmpPng, '0')
     .catch(() => false)
-    // some short clips have no frame at 1s -> retry at 0s
-    .then((r) => (r ? true : extractFrame(ffmpegPath!, src, tmpPng, '0').catch(() => false)))
+    // some clips have no frame at 0s (rare) -> retry at 1s
+    .then((r) => (r ? true : extractFrame(ffmpegPath!, src, tmpPng, '1').catch(() => false)))
 
   if (!ok || !existsSync(tmpPng)) return null
   try {
@@ -100,7 +100,9 @@ function extractFrame(
     p.stderr.on('data', (d) => (err += d.toString()))
     p.on('error', reject)
     p.on('close', (code) => {
-      if (code === 0) resolve(true)
+      // ffmpeg may exit 0 yet produce an empty file for out-of-range -ss on short clips
+      const produced = code === 0 && existsSync(dst) && statSync(dst).size > 0
+      if (produced) resolve(true)
       else reject(new Error(`ffmpeg exit ${code}: ${err.slice(-160)}`))
     })
   })
