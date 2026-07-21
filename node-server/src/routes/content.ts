@@ -18,6 +18,7 @@ import { parsePagination } from '../util/pagination.js'
 import { success, paginated, error } from '../util/response.js'
 import { requireAuth } from '../middleware/auth.js'
 import { upload, fileUrl } from '../util/media.js'
+import { generateThumbnail } from '../util/thumbnail.js'
 import type { ContentType } from '../types.js'
 
 const router = Router()
@@ -128,7 +129,7 @@ router.get('/my', requireAuth, (req, res) => {
 })
 
 // ---- upload (auth, multipart) ----
-router.post('/upload', requireAuth, upload.single('file'), (req, res) => {
+router.post('/upload', requireAuth, upload.single('file'), async (req, res) => {
   const { title, type, content, url } = req.body || {}
   if (!title || !type) return error(res, 400, '标题和类型不能为空')
   if (!VALID_TYPES.includes(type as ContentType)) return error(res, 400, '不支持的内容类型')
@@ -145,12 +146,19 @@ router.post('/upload', requireAuth, upload.single('file'), (req, res) => {
   if (t === 'text' && !content) return error(res, 400, '图文类型需要填写内容')
   if (t === 'link' && !url) return error(res, 400, '链接类型需要填写 URL')
 
+  // Generate a thumbnail for image/video uploads (best-effort, never blocks upload).
+  let thumbPath: string | null = null
+  if (file && (t === 'image' || t === 'video')) {
+    thumbPath = await generateThumbnail(file.filename).catch(() => null)
+  }
+
   const id = createContent({
     title,
     type: t,
     content: typeof content === 'string' ? content : '',
     filePath,
     fileSize,
+    thumbPath,
     url: typeof url === 'string' ? url : null,
     tags: parseTagsInput(req.body?.tags),
     userId: req.user!.uid,
@@ -187,7 +195,7 @@ router.get('/:id', (req, res) => {
 })
 
 // ---- update (auth) ----
-router.put('/:id', requireAuth, upload.single('file'), (req, res) => {
+router.put('/:id', requireAuth, upload.single('file'), async (req, res) => {
   const id = Number(req.params.id)
   const row = getContentRow(id)
   if (!row) return error(res, 404, '内容不存在')
@@ -201,6 +209,10 @@ router.put('/:id', requireAuth, upload.single('file'), (req, res) => {
   if (file) {
     fields.filePath = fileUrl(file.filename)
     fields.fileSize = file.size
+    // Regenerate thumbnail when the media file is replaced.
+    if (row.type === 'image' || row.type === 'video') {
+      fields.thumbPath = await generateThumbnail(file.filename).catch(() => null)
+    }
   }
   updateContent(id, fields)
   success(res, decorateContent(getContentRow(id)!), '更新成功')

@@ -15,6 +15,7 @@ import {
   listUsers,
   purgeDeletedContents,
   setAuditStatus,
+  updateContent,
   updateContentAuthor,
   updateUserBan,
   updateUserRole,
@@ -24,6 +25,7 @@ import { parsePagination } from '../util/pagination.js'
 import { success, paginated, error } from '../util/response.js'
 import { requireAdmin, requireAuth } from '../middleware/auth.js'
 import { UPLOAD_DIR } from '../util/media.js'
+import { generateThumbnail } from '../util/thumbnail.js'
 import type { ClaimStatus, CommentReport as CommentReportType } from '../types.js'
 
 const router = Router()
@@ -107,20 +109,37 @@ router.put('/content/:id/author', (req, res) => {
   })
 })
 
-// Regenerate a single thumbnail (concept: echoes current value).
-router.post('/content/:id/regenerate-thumbnail', (req, res) => {
+// Regenerate a single thumbnail from the stored media file.
+router.post('/content/:id/regenerate-thumbnail', async (req, res) => {
   const id = Number(req.params.id)
   const row = getContentRow(id)
   if (!row) return error(res, 404, '内容不存在')
-  success(res, { id, thumb_path: row.thumb_path || '' })
+  if (!row.file_path || (row.type !== 'image' && row.type !== 'video')) {
+    return success(res, { id, thumb_path: row.thumb_path || '' })
+  }
+  const filename = row.file_path.split('/').pop() as string
+  const thumb = await generateThumbnail(filename).catch(() => null)
+  if (thumb) updateContent(id, { thumbPath: thumb })
+  success(res, { id, thumb_path: thumb || row.thumb_path || '' })
 })
 
-// Regenerate all thumbnails (concept: counts approved contents).
-router.post('/content/regenerate-all-thumbnails', (_req, res) => {
-  const row = db
-    .prepare("SELECT COUNT(*) AS c FROM contents WHERE deleted_at IS NULL AND audit_status = 'approved'")
-    .get() as { c: number }
-  success(res, { count: row.c })
+// Regenerate thumbnails for every image/video content that has a media file.
+router.post('/content/regenerate-all-thumbnails', async (_req, res) => {
+  const rows = db
+    .prepare(
+      "SELECT id, file_path FROM contents WHERE deleted_at IS NULL AND file_path IS NOT NULL AND type IN ('image','video')",
+    )
+    .all() as { id: number; file_path: string }[]
+  let count = 0
+  for (const r of rows) {
+    const filename = r.file_path.split('/').pop() as string
+    const thumb = await generateThumbnail(filename).catch(() => null)
+    if (thumb) {
+      updateContent(r.id, { thumbPath: thumb })
+      count++
+    }
+  }
+  success(res, { count })
 })
 
 // Purge soft-deleted contents.
