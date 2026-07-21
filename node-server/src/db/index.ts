@@ -136,19 +136,6 @@ CREATE TABLE IF NOT EXISTS notifications (
 );
 CREATE INDEX IF NOT EXISTS idx_notif_user ON notifications(user_id);
 
-CREATE TABLE IF NOT EXISTS user_devices (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id INTEGER NOT NULL,
-  device_token TEXT NOT NULL,
-  platform TEXT DEFAULT '',
-  device_info TEXT DEFAULT '',
-  last_active_at INTEGER,
-  last_push_at INTEGER,
-  created_at INTEGER NOT NULL,
-  updated_at INTEGER NOT NULL,
-  UNIQUE(device_token)
-);
-
 CREATE TABLE IF NOT EXISTS api_keys (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL,
@@ -864,24 +851,6 @@ export function markRead(id: number, userId: number): void {
 
 export function markAllRead(userId: number): void {
   db.prepare('UPDATE notifications SET is_read = 1 WHERE user_id = ?').run(userId)
-}
-
-export function registerDevice(input: {
-  userId: number
-  token: string
-  platform: string
-  deviceInfo: string
-}): void {
-  const t = now()
-  db.prepare(
-    `INSERT INTO user_devices (user_id, device_token, platform, device_info, last_active_at, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(device_token) DO UPDATE SET user_id = excluded.user_id, platform = excluded.platform, device_info = excluded.device_info, updated_at = excluded.updated_at`,
-  ).run(input.userId, input.token, input.platform, input.deviceInfo, t, t, t)
-}
-
-export function unregisterDevice(token: string): void {
-  db.prepare('DELETE FROM user_devices WHERE device_token = ?').run(token)
 }
 
 /* ------------------------------------------------------------------ */

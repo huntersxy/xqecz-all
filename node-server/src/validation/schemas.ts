@@ -101,15 +101,6 @@ export const pollCreateSchema = z
 
 export const pollVoteSchema = z.object({ option_index: num }).passthrough()
 
-// ── Notification ──
-export const deviceSchema = z
-  .object({
-    token: z.string().min(1, 'device token 不能为空'),
-    platform: str.optional(),
-    device_info: str.optional(),
-  })
-  .passthrough()
-
 // ── API keys ──
 export const apiKeyCreateSchema = z
   .object({

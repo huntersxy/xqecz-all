@@ -149,12 +149,12 @@ docker compose up -d                # 生产部署（端口 9200 -> 3000）
 ### 通知 `/api/notifications`（需认证）
 | 方法 | 路径 | Handler |
 |------|------|---------|
-| POST | `/notifications/device` | `handleRegisterDevice` |
-| DELETE | `/notifications/device/:token` | `handleUnregisterDevice` |
 | GET | `/notifications/list` | `handleGetNotifications` |
 | GET | `/notifications/unread-count` | `handleGetUnreadCount` |
 | PUT | `/notifications/:id/read` | `handleMarkAsRead` |
 | PUT | `/notifications/read-all` | `handleMarkAllAsRead` |
+
+> 注：原 `POST /notifications/device` 与 `DELETE /notifications/device/:token`（移动端 JPush 推送设备注册）已从 Node 后端移除，推送（push）相关功能不再保留，仅保留站内通知（in-app notifications）。
 
 ### 管理 `/api/admin`（需认证 + 管理员）
 | 方法 | 路径 | Handler |

@@ -1,38 +1,15 @@
 import { Router } from 'express'
 import {
   countUnread,
-  createNotification,
   listNotifications,
   markAllRead,
   markRead,
-  registerDevice,
-  unregisterDevice,
 } from '../db/index.js'
 import { parsePagination } from '../util/pagination.js'
 import { success, error } from '../util/response.js'
 import { requireAuth } from '../middleware/auth.js'
-import { validate } from '../validation/validate.js'
-import { deviceSchema } from '../validation/schemas.js'
 
 const router = Router()
-
-// Register a push device token.
-router.post('/device', requireAuth, validate(deviceSchema), (req, res) => {
-  const { token, platform, device_info } = req.body
-  registerDevice({
-    userId: req.user!.uid,
-    token: String(token),
-    platform: typeof platform === 'string' ? platform : '',
-    deviceInfo: typeof device_info === 'string' ? device_info : '',
-  })
-  success(res, null, '设备已注册')
-})
-
-// Unregister a device by token.
-router.delete('/device/:token', requireAuth, (req, res) => {
-  unregisterDevice(req.params.token)
-  success(res, null, '设备已注销')
-})
 
 // List notifications (array).
 router.get('/list', requireAuth, (req, res) => {
@@ -58,5 +35,4 @@ router.put('/read-all', requireAuth, (req, res) => {
   success(res, null, '全部已读')
 })
 
-export { createNotification }
 export default router
