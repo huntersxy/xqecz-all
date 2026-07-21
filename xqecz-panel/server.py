@@ -119,21 +119,21 @@ async def deploy(x_api_key: Optional[str] = Header(None)):
         yield from stream_output("cd frontend && npm run build", cwd=project_dir)
 
         yield "\n[STEP 3] Building backend...\n"
-        yield from stream_output("go mod download && CGO_ENABLED=0 go build -ldflags='-s -w' -o dist/server ./cmd/server", cwd=project_dir)
+        yield from stream_output("cd node-server && npm ci && npm run build", cwd=project_dir)
 
-        yield "\n[STEP 4] Copying frontend files...\n"
-        yield from stream_output("mkdir -p dist/frontend && rm -rf dist/frontend/dist && cp -r frontend/dist dist/frontend/", cwd=project_dir)
+        yield "\n[STEP 4] Preparing runtime dirs...\n"
+        yield from stream_output("mkdir -p dist/logs node-server/uploads/thumbs node-server/data", cwd=project_dir)
 
         yield "\n[STEP 5] Restarting service...\n"
-        # 获取 PID
         pid_file = Path(project_dir) / "dist" / "logs" / "server.pid"
         if pid_file.exists():
             pid = pid_file.read_text().strip()
-            yield f"Sending SIGINT to PID {pid}...\n"
-            yield from stream_output(f"kill -INT {pid} 2>/dev/null || true", cwd=project_dir)
+            yield f"Sending SIGTERM to PID {pid}...\n"
+            yield from stream_output(f"kill -TERM {pid} 2>/dev/null || true", cwd=project_dir)
+            time.sleep(2)
         else:
             yield "Starting new service...\n"
-            yield from stream_output("cd dist && nohup ./server >> logs/server.log 2>&1 & echo $! > logs/server.pid", cwd=project_dir)
+        yield from stream_output("nohup node node-server/dist/index.js >> dist/logs/server.log 2>&1 & echo $! > dist/logs/server.pid", cwd=project_dir)
 
         yield "\n[DONE] Deploy completed!\n"
 
@@ -152,10 +152,10 @@ async def build(x_api_key: Optional[str] = Header(None)):
         yield from stream_output("cd frontend && npm run build", cwd=project_dir)
 
         yield "\n[STEP 2] Building backend...\n"
-        yield from stream_output("go mod download && CGO_ENABLED=0 go build -ldflags='-s -w' -o dist/server ./cmd/server", cwd=project_dir)
+        yield from stream_output("cd node-server && npm ci && npm run build", cwd=project_dir)
 
-        yield "\n[STEP 3] Copying frontend files...\n"
-        yield from stream_output("mkdir -p dist/frontend && rm -rf dist/frontend/dist && cp -r frontend/dist dist/frontend/", cwd=project_dir)
+        yield "\n[STEP 3] Preparing runtime dirs...\n"
+        yield from stream_output("mkdir -p dist/logs node-server/uploads/thumbs node-server/data", cwd=project_dir)
 
         yield "\n[DONE] Build completed!\n"
 

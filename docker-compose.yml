@@ -1,10 +1,10 @@
-# xqecz-all 全栈部署
+# xqecz-all 全栈部署 (Node.js 后端 + Vue 前端)
 #
 # 构建并启动：
 #   docker compose build && docker compose up -d
 #
 # 访问：http://localhost:9200
-# 查看 admin 初始密码：docker compose logs -f app
+# 健康检查：http://localhost:9200/api/health
 
 services:
   app:
@@ -13,23 +13,20 @@ services:
       dockerfile: Dockerfile
       args:
         NODE_IMAGE: ${NODE_IMAGE:-node:22-alpine}
-        GOLANG_IMAGE: ${GOLANG_IMAGE:-golang:1.25-alpine}
-        ALPINE_IMAGE: ${ALPINE_IMAGE:-alpine:3.20}
     image: ${XQ_IMAGE:-xqecz}:${XQ_TAG:-latest}
     container_name: xqecz-app
     mem_limit: 512m
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     ports:
-      - "${XQ_APP_PORT:-9200}:8080"
+      - "${XQ_APP_PORT:-9200}:3000"
     environment:
       - TZ=Asia/Shanghai
+      - PORT=3000
+      - DB_PATH=/app/node-server/data/app.db
+      - JWT_SECRET=${JWT_SECRET:-please-change-in-prod}
     volumes:
-      - ./docker_data/uploads:/app/uploads
-      - ./docker_data/thumbnails:/app/thumbnails
-      - ./docker_data/images:/app/images
+      - ./docker_data/uploads:/app/node-server/uploads
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/api/auth/me"]
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/api/health"]
       interval: 30s
       timeout: 5s
       retries: 3

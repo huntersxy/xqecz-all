@@ -2,37 +2,39 @@
 
 ## 项目概述
 
-小泉动漫二创站 — 从 Rust 版本 (`xiaoquan-backend`) 移植的 Go + Vue 3 全栈应用。
+小泉动漫二创站 — Node.js + TypeScript + Express 后端 + Vue 3 全栈应用（`concept/node-fullstack` 分支）。
 用户上传/浏览二次创作内容（图片、视频、图文、链接），含评论、投票、通知、管理后台。
 
-**核心约束：前后端端点对齐** — Go 后端的路由、请求参数、响应格式必须与前端 `frontend/src/api/index.ts` 中定义的接口完全一致。移植时以 Rust 源码为参考，以前端契约为准。
+> 迁移说明：后端已从 Go（`cmd/`、`internal/`）迁移到 Node（`node-server/`）。Node 已实现的功能对应的 Go 代码均已删除；仅 `cmd/server/scheduler.go`、`internal/service/tinify.go`、`internal/util/redis.go` 因 Node 尚未实现对应功能而保留（详见仓库 README「残留 Go 代码」一节）。
+
+**核心约束：前后端端点对齐** — Node 后端的路由、请求参数、响应格式必须与前端 `frontend/src/api/index.ts` 中定义的接口完全一致。以前端契约为准。
 
 ## 目录结构
 
 ```
-cmd/server/
-  main.go              # 入口，路由注册，中间件栈（路由已定义，handler 为 stub）
-  handlers.go          # 所有 handler 函数存根（TODO 待实现）
+node-server/                 # Node.js + TypeScript 后端（当前后端实现）
+  src/
+    index.ts                 # 入口：监听端口、首启自动 seed
+    app.ts                   # Express 装配（中间件 + 路由 + 静态托管）
+    db/index.ts              # SQLite 连接、建表、所有数据访问函数
+    routes/                  # 各业务路由（handler + service + repo 一体）
+    middleware/              # auth / error / rateLimit
+    util/                    # media / pagination / response / security / thumbnail
+    validation/              # zod schemas + validate 中间件
+    seed.ts  types.ts
+  data/                      # SQLite 数据库文件（gitignore）
+  uploads/                   # 上传文件 + 缩略图（gitignore）
 
-internal/
-  config/              # Viper 配置加载 (config.go + loader.go)
-  handler/             # HTTP 处理器（待实现，从 handlers.go 迁入）
-  service/             # 业务逻辑（待实现）
-  repository/          # 数据访问层（待实现）
-  middleware/           # auth.go, cors.go, error.go, ratelimit.go（已完成）
-  model/model.go       # 10 个数据表的完整模型定义（已完成）
-  dto/                 # 请求/响应结构（待实现）
-  util/                # 工具函数（已完成）: database, redis, response, pagination, security, file, video
+frontend/                    # Vue 3 + TypeScript + Vite + Ant Design Vue + Tailwind CSS
+  src/api/index.ts           # ofetch 封装，统一 401/重试/错误处理
+  src/types/schemas.ts       # Zod schema（前端类型单一来源）
+  src/stores/                # Pinia 状态管理
+  src/views/                 # 路由页面
 
-frontend/              # Vue 3 + TypeScript + Vite + Ant Design Vue + Tailwind CSS
-  src/api/index.ts     # ofetch 封装，统一 401/重试/错误处理
-  src/types/schemas.ts # Zod schema（前端类型单一来源）
-  src/stores/          # Pinia 状态管理
-  src/views/           # 路由页面
-
-config/                # config.yaml 配置文件
-docker/                # Docker 相关配置
-assets/                # 静态资源（默认封面等）
+cmd/  internal/  go.mod  go.sum   # 残留 Go 代码（见 README「残留 Go 代码」）
+config/                        # 旧 Go 配置（当前后端未使用）
+docker/                        # Docker 相关配置
+assets/                        # 静态资源（默认封面等）
 ```
 
 ## Rust 源码参考
@@ -51,16 +53,19 @@ src/
   scheduler.rs         # 定时任务（推荐列表、tinify、推送）
 ```
 
-移植时参考 Rust 的 `handlers/` 和 `services/` 实现对应的 Go 版本。
+移植时参考 Rust 的 `handlers/` 和 `services/` 实现对应的 Node 版本（`node-server/src/routes/`）。
 
 ## 构建与测试命令
 
 ```bash
-# 后端
-go build ./cmd/server/              # 编译
-go run ./cmd/server/                # 运行
-go test ./...                       # 运行所有测试
-go vet ./...                        # 静态检查
+# 后端 (Node.js)
+cd node-server
+npm install
+npm run dev        # tsx watch 热重载（端口 3000）
+npm run build      # tsc 编译到 dist/
+npm run typecheck  # 仅类型检查
+npm start          # node dist/index.js
+npm run seed       # 手动初始化演示数据
 
 # 前端
 cd frontend && npm run build        # 生产构建（含 type-check + vite build）
@@ -68,25 +73,23 @@ cd frontend && npx vue-tsc --noEmit # 仅类型检查
 cd frontend && npm run dev          # 开发服务器
 
 # Docker
-docker compose build                # 多阶段构建
-docker compose up -d                # 生产部署
-docker compose --profile dev up -d  # 本地开发（含 MySQL + Redis）
+docker compose build                # 多阶段构建（前端 + Node 后端）
+docker compose up -d                # 生产部署（端口 9200 -> 3000）
 ```
 
 ## 架构分层规则
 
-### 后端 Handler → Service → Repository 三层分离
+### 后端 routes → db → util 分层（Node）
 
 | 层 | 职责 | 文件位置 |
 |---|---|---|
-| `handler/` | 参数提取、AuthUser 校验、调用 service、返回响应 | `internal/handler/` |
-| `service/` | 业务逻辑、调用 repository、缓存策略、外部调用 | `internal/service/` |
-| `repository/` | 纯数据库操作（sqlx 查询），无业务逻辑 | `internal/repository/` |
-| `util/` | 无状态工具函数，跨层复用 | `internal/util/` |
+| `routes/` | 参数校验、AuthUser 校验、调用 db 函数、返回响应（handler + service + repo 一体） | `node-server/src/routes/` |
+| `db/` | SQLite 连接、建表、所有数据访问函数（better-sqlite3 参数化查询） | `node-server/src/db/index.ts` |
+| `util/` | 无状态工具函数（media / pagination / response / security / thumbnail），跨层复用 | `node-server/src/util/` |
 
-- Handler 禁止直接写 SQL，所有 DB 操作在 repository 层
-- `util/response.go` 提供 `Success` / `Error` / `Paginated` / `BadRequest` 等统一响应
-- `util/pagination.go` 提供分页参数解析
+- `routes/` 内禁止直接拼接 SQL，所有 DB 操作在 `db/index.ts`
+- `util/response.ts` 提供 `success` / `error` / `paginated` 等统一响应
+- `util/pagination.ts` 提供分页参数解析
 
 ### 前端 API → Store → Composable → View
 
@@ -99,7 +102,7 @@ docker compose --profile dev up -d  # 本地开发（含 MySQL + Redis）
 
 ## API 端点对照表
 
-路由前缀 `/api/`，RESTful 风格。以下为已注册的完整端点（Go 版 `cmd/server/main.go`）：
+路由前缀 `/api/`，RESTful 风格。以下为已注册的完整端点（Node 版实现位于 `node-server/src/routes/`）；表中 "Handler" 列为 Go 时代的标识符，对应实现见同名路由文件（`routes/*.ts`）。
 
 ### 认证 `/api/auth`
 | 方法 | 路径 | 认证 | Handler |
@@ -183,18 +186,18 @@ docker compose --profile dev up -d  # 本地开发（含 MySQL + Redis）
 
 ## 编码规范
 
-### 后端 (Go)
+### 后端 (Node.js)
 
-- **响应格式**: 统一 `ApiResponse { code, message, data }`，用 `util.Success` / `util.Error` / `util.Paginated`
-- **分页**: `util.ParsePagination(page, pageSize, defaultSize, maxSize)` → `util.Paginated()`
-- **认证**: `middleware.Auth()` 中间件提取用户，handler 通过 `c.Locals("user")` 获取
-- **软删除**: 所有删除用 `SET deleted_at = NOW()`，查询加 `WHERE deleted_at IS NULL`
-- **缓存**: Redis 缓存通过 `util/redis.go`，TTL 常量定义在 service 层
-- **配置**: Viper 加载 `config/config.yaml`，结构体在 `internal/config/`
-- **JSON**: 使用 `github.com/bytedance/sonic` 高性能序列化
-- **日志**: `github.com/rs/zerolog` 结构化日志
-- **ORM**: `github.com/jmoiron/sqlx`，手动写 SQL，不用 ORM
-- **错误处理**: 返回 `util.Error(c, code, msg)`，不 panic
+- **响应格式**: 统一 `{ code, message, data }`，用 `node-server/src/util/response.ts` 的 `success` / `error` / `paginated`
+- **分页**: `node-server/src/util/pagination.ts` 解析 `page` / `pageSize`，统一分页响应
+- **认证**: `node-server/src/middleware/auth.ts` 校验 JWT，将用户信息挂到 `req.user`
+- **软删除**: 所有删除在 `contents` / `comments` / `polls` 表写 `deleted_at`，查询加 `WHERE deleted_at IS NULL`（SQLite 用 `IS NULL` 判断）
+- **缓存**: 当前无 Redis；SQLite 直接查询（残留 `internal/util/redis.go` 待 Node 化）
+- **配置**: 通过环境变量（`PORT` / `DB_PATH` / `JWT_SECRET` / `JWT_EXPIRES_IN`），无配置文件
+- **JSON**: Express 内置 `express.json()`
+- **日志**: 结构化 `console` 输出
+- **数据库**: better-sqlite3 同步 API，参数化查询防注入，不用 ORM
+- **错误处理**: 路由内 `try/catch` 后 `error(res, code, msg)`，不抛未捕获异常
 
 ### 前端 (TypeScript/Vue)
 
@@ -207,31 +210,30 @@ docker compose --profile dev up -d  # 本地开发（含 MySQL + Redis）
 ## 开发工作流
 
 添加新功能的顺序：
-1. `internal/model/` — 定义/确认数据模型
-2. `internal/dto/` — 定义请求/响应结构
-3. `internal/repository/` — 实现数据访问
-4. `internal/service/` — 实现业务逻辑
-5. `internal/handler/` — 实现 HTTP 处理器
-6. `cmd/server/main.go` — 注册路由（如需要）
+1. `node-server/src/db/index.ts` — 建表 / 新增数据访问函数
+2. `node-server/src/validation/schemas.ts` — 定义 zod 请求校验 schema
+3. `node-server/src/routes/*.ts` — 新增路由（参数校验 → 调用 db → 统一响应）
+4. 如需复用逻辑，放入 `node-server/src/util/`
+5. 中间件放入 `node-server/src/middleware/`
 
-**关键**: 实现 handler 时必须对照前端 `frontend/src/api/index.ts` 中的接口定义，确保请求参数名、响应字段名完全一致。
+**关键**: 实现路由时必须对照前端 `frontend/src/api/index.ts` 中的接口定义，确保请求参数名、响应字段名完全一致。
 
 ## Docker 部署
 
-- `docker-compose.yml` 使用 profiles 区分环境：
-  - `docker compose up -d` — 生产模式（MySQL/Redis 远程）
-  - `docker compose --profile dev up -d` — 本地开发（含 MySQL + Redis）
-  - `docker compose --profile dev up -d mysql redis` — 仅基础设施
-- 端口映射: 宿主 `${XQ_APP_PORT:-9200}` → 容器 80（nginx）
-- 数据持久化: `./docker_data/{uploads,thumbnails,images,mysql,redis}`
+- `docker-compose.yml` 构建 Node 后端 + Vue 前端（多阶段），无 MySQL / Redis：
+  - `docker compose build` — 多阶段构建
+  - `docker compose up -d` — 生产部署（端口 `${XQ_APP_PORT:-9200}` → 容器 3000）
+- 健康检查: `http://localhost:3000/api/health`
+- 数据持久化: `./docker_data/uploads` 挂载到 `node-server/uploads`
+- 数据库为 SQLite 文件 `node-server/data/app.db`（容器内）
 
 ## 已知约束
 
-- MySQL 用 MariaDB 10.5 兼容语法
-- Redis 用于 session、内容缓存、推荐 ZSet、限流计数
+- 后端使用 SQLite（better-sqlite3），单机部署；无 MySQL / Redis
+- 残留 Go 代码：`cmd/server/scheduler.go`（定时任务）、`internal/service/tinify.go`（Tinify 压缩）、`internal/util/redis.go`（Redis 缓存）尚未在 Node 实现
 - 前端用 hash 路由，SEO 不适用
-- `uploads/`、`thumbnails/`、`images/` 目录需可写
-- FFmpeg 可选，用于视频封面生成
+- `node-server/uploads/`、`node-server/uploads/thumbs/`、`node-server/data/` 目录需可写
+- 视频缩略图依赖 `ffmpeg-static`（随依赖安装，无需系统 FFmpeg）
 
 ## 关键文件速查
 
@@ -240,9 +242,10 @@ docker compose --profile dev up -d  # 本地开发（含 MySQL + Redis）
 | Rust 参考（路由） | `E:\Code\xqdm\xiaoquan-backend\src\main.rs` |
 | Rust 参考（handler） | `E:\Code\xqdm\xiaoquan-backend\src\handlers/*.rs` |
 | Rust 参考（service） | `E:\Code\xqdm\xiaoquan-backend\src\services/*.rs` |
-| Go 路由定义 | `cmd/server/main.go` |
-| Go handler 存根 | `cmd/server/handlers.go` |
-| 数据模型 | `internal/model/model.go` |
-| 统一响应 | `internal/util/response.go` |
+| Node 入口 | `node-server/src/index.ts` |
+| Node 路由 | `node-server/src/routes/*.ts` |
+| 数据访问 | `node-server/src/db/index.ts` |
+| 统一响应 | `node-server/src/util/response.ts` |
+| 残留 Go 代码 | `cmd/server/scheduler.go`、`internal/service/tinify.go`、`internal/util/redis.go` |
 | 前端 API 封装 | `frontend/src/api/index.ts` |
 | 前端类型定义 | `frontend/src/types/schemas.ts` |

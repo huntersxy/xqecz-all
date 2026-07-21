@@ -12,11 +12,19 @@
 .DS_Store
 Thumbs.db
 
-# Node
+# Node (前端 + 后端均使用 npm ci 重新安装，避免带入本地 node_modules)
 frontend/node_modules
+frontend/dist
+node-server/node_modules
+node-server/dist
+node-server/data
+node-server/uploads
 
-# Go
-vendor
+# Go (后端已迁移至 Node.js，以下为待 Node 实现的残留 Go 代码，不参与镜像构建)
+go.mod
+go.sum
+cmd
+internal
 
 # Docker
 docker_data

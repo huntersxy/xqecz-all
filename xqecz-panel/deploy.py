@@ -119,29 +119,16 @@ class DeployManager:
         return True, f"前端构建完成:\n{output}"
 
     def build_backend(self) -> tuple[bool, str]:
-        """构建后端"""
-        env = self._load_env()
-        self._run("go mod download")
-
-        try:
-            result = subprocess.run(
-                "CGO_ENABLED=0 go build -ldflags='-s -w' -o dist/server ./cmd/server",
-                shell=True, cwd=self.project_dir,
-                capture_output=True, text=True, timeout=300,
-                env=env
-            )
-            output = ""
-            if result.stdout:
-                output += result.stdout
-            if result.stderr:
-                output += result.stderr
-            if result.returncode != 0:
-                return False, f"后端构建失败:\n{output}"
-            return True, f"后端构建完成:\n{output}"
-        except subprocess.TimeoutExpired:
-            return False, "后端构建超时"
-        except Exception as e:
-            return False, f"后端构建异常: {e}"
+        """构建后端 (Node.js)"""
+        backend_dir = self.project_dir / "node-server"
+        if not (backend_dir / "node_modules").exists():
+            success, output = self._run_with_output("npm install", cwd=backend_dir)
+            if not success:
+                return False, f"npm install 失败:\n{output}"
+        success, output = self._run_with_output("npm run build", cwd=backend_dir)
+        if not success:
+            return False, f"后端构建失败:\n{output}"
+        return True, "后端构建完成"
 
     def copy_frontend(self) -> tuple[bool, str]:
         """复制前端产物"""
@@ -162,22 +149,22 @@ class DeployManager:
         return True, "前端产物已复制"
 
     def start_service(self) -> tuple[bool, str]:
-        """启动服务"""
+        """启动服务 (Node.js)"""
         if self.is_running():
             return True, "服务已在运行中"
 
         # 确保日志目录存在
         self.log_file.parent.mkdir(parents=True, exist_ok=True)
 
-        server_bin = self.dist_dir / "server"
+        server_bin = self.project_dir / "node-server" / "dist" / "index.js"
         if not server_bin.exists():
-            return False, "服务二进制不存在"
+            return False, "服务产物不存在 (node-server/dist/index.js)，请先构建"
 
         # 启动服务
         with open(self.log_file, "a") as log_f:
             process = subprocess.Popen(
-                [str(server_bin)],
-                cwd=str(self.dist_dir),
+                ["node", str(server_bin)],
+                cwd=str(self.project_dir),
                 stdout=log_f,
                 stderr=log_f,
                 start_new_session=True
@@ -218,21 +205,9 @@ class DeployManager:
             return False, f"停止服务失败: {e}"
 
     def restart_service(self) -> tuple[bool, str]:
-        """重启服务（发送信号）"""
-        pid = self.get_pid()
-        if pid is None:
-            return self.start_service()
-
-        try:
-            os.kill(pid, signal.SIGINT)
-            time.sleep(2)
-
-            if self.is_running():
-                return True, f"服务已重启 (PID: {pid})"
-            else:
-                return False, "服务重启失败"
-        except Exception as e:
-            return False, f"重启服务失败: {e}"
+        """重启服务（先停止再启动）"""
+        self.stop_service()
+        return self.start_service()
 
     def deploy(self) -> tuple[bool, str]:
         """一键部署"""
