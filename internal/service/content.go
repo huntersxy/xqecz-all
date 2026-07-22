@@ -118,14 +118,7 @@ func (s *ContentService) GetContentList(query ContentListQuery) (*util.Paginated
 		results = append(results, buildContentSummaryWithUser(&cwu))
 	}
 
-	totalPage := util.TotalPages(total, pag.PageSize)
-	response := &util.PaginatedResponse{
-		List:      results,
-		Total:     total,
-		Page:      pag.Page,
-		PageSize:  pag.PageSize,
-		TotalPage: totalPage,
-	}
+	response := util.NewPaginated(results, total, pag.Page, pag.PageSize)
 
 	// 缓存1小时
 	go func() {
@@ -133,7 +126,7 @@ func (s *ContentService) GetContentList(query ContentListQuery) (*util.Paginated
 		util.SetCache(cacheKey, string(data), CACHE_DURATION_1HOUR)
 	}()
 
-	return response, nil
+	return &response, nil
 }
 
 // CreateContentRequest 创建内容请求

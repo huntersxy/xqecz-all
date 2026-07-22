@@ -139,36 +139,6 @@ func Migrate(db *sqlx.DB) error {
 			INDEX idx_claims_status (status)
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 
-		// 通知表
-		`CREATE TABLE IF NOT EXISTS notifications (
-			id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-			user_id BIGINT UNSIGNED NOT NULL,
-			type VARCHAR(20) NOT NULL,
-			title VARCHAR(200) NOT NULL,
-			content TEXT,
-			related_id BIGINT UNSIGNED,
-			is_read BOOLEAN DEFAULT FALSE,
-			created_at DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3),
-			INDEX idx_notifications_user_id (user_id),
-			INDEX idx_notifications_is_read (is_read),
-			INDEX idx_notifications_created_at (created_at)
-		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
-
-		// 用户设备表
-		`CREATE TABLE IF NOT EXISTS user_devices (
-			id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-			user_id BIGINT UNSIGNED NOT NULL,
-			device_token VARCHAR(255) NOT NULL,
-			platform VARCHAR(20),
-			device_info TEXT,
-			last_active_at DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3),
-			last_push_at DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3),
-			created_at DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3),
-			updated_at DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
-			UNIQUE KEY uk_user_devices_token (device_token),
-			INDEX idx_user_devices_user_id (user_id)
-		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
-
 		// API密钥表
 		`CREATE TABLE IF NOT EXISTS api_keys (
 			id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,

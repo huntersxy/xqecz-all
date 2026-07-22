@@ -183,7 +183,6 @@ func runServer() {
 	commentHandler := handler.NewCommentHandler(db)
 	pollHandler := handler.NewPollHandler(db)
 	adminHandler := handler.NewAdminHandler(db)
-	notificationHandler := handler.NewNotificationHandler(db)
 	apiKeyHandler := handler.NewApiKeyHandler(db)
 
 	// API路由
@@ -245,18 +244,6 @@ func runServer() {
 		// 需要认证的路由
 		poll.Post("/create", middleware.Auth(), pollHandler.CreatePoll)
 		poll.Delete("/:id", middleware.Auth(), pollHandler.DeletePoll)
-	}
-
-	// 通知路由
-	notification := api.Group("/notifications")
-	notification.Use(middleware.Auth())
-	{
-		notification.Post("/device", notificationHandler.RegisterDevice)
-		notification.Delete("/device/:token", notificationHandler.UnregisterDevice)
-		notification.Get("/list", notificationHandler.GetNotifications)
-		notification.Get("/unread-count", notificationHandler.GetUnreadCount)
-		notification.Put("/:id/read", notificationHandler.MarkAsRead)
-		notification.Put("/read-all", notificationHandler.MarkAllAsRead)
 	}
 
 	// 管理后台路由

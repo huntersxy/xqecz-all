@@ -81,14 +81,18 @@ func InternalError(c *fiber.Ctx, msg string) error {
 
 // Paginated 分页响应
 func Paginated(c *fiber.Ctx, list interface{}, total int64, page, pageSize int) error {
-	totalPage := (total + int64(pageSize) - 1) / int64(pageSize)
-	return Success(c, PaginatedResponse{
+	return Success(c, NewPaginated(list, total, page, pageSize))
+}
+
+// NewPaginated 构造分页响应 data
+func NewPaginated(list interface{}, total int64, page, pageSize int) PaginatedResponse {
+	return PaginatedResponse{
 		List:      list,
 		Total:     total,
 		Page:      page,
 		PageSize:  pageSize,
-		TotalPage: totalPage,
-	})
+		TotalPage: (total + int64(pageSize) - 1) / int64(pageSize),
+	}
 }
 
 // ValidateOr 验证请求

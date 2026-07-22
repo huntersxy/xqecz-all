@@ -14,7 +14,6 @@ import (
 // ContentHandler 内容处理器
 type ContentHandler struct {
 	contentService  *service.ContentService
-	notifService    *service.NotificationService
 	claimService    *service.ClaimService
 }
 
@@ -22,7 +21,6 @@ type ContentHandler struct {
 func NewContentHandler(db *sqlx.DB) *ContentHandler {
 	return &ContentHandler{
 		contentService:  service.NewContentService(db),
-		notifService:    service.NewNotificationService(db),
 		claimService:    service.NewClaimService(db),
 	}
 }
