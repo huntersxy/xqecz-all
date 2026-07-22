@@ -28,6 +28,10 @@ export interface Content {
   thumb?: string
   video?: string
   img?: string
+  /** Tinify-compressed original URL (image type only), when available. */
+  compressed?: string
+  /** Source platform detected for link/external-video content (bilibili/youtube/...). */
+  platform?: string
   file_size?: number
   user: User
   tags: string[]

@@ -19,6 +19,9 @@ import { success, paginated, error } from '../util/response.js'
 import { requireAuth } from '../middleware/auth.js'
 import { upload, fileUrl } from '../util/media.js'
 import { generateThumbnail } from '../util/thumbnail.js'
+import { compressImageWithTinify } from '../util/compress.js'
+import { fetchLinkPreview } from '../util/linkPreview.js'
+import { isObjectStorageEnabled, uploadToObjectStorage, mimeForFile } from '../util/storage.js'
 import { validate } from '../validation/validate.js'
 import { uploadSchema, updateContentSchema, claimSchema } from '../validation/schemas.js'
 import type { ContentType } from '../types.js'
@@ -132,7 +135,7 @@ router.get('/my', requireAuth, (req, res) => {
 
 // ---- upload (auth, multipart) ----
 router.post('/upload', requireAuth, upload.single('file'), validate(uploadSchema), async (req, res) => {
-  const { title, type, content, url } = req.body
+  let { title, type, content, url } = req.body
   if (!VALID_TYPES.includes(type as ContentType)) return error(res, 400, '不支持的内容类型')
   const t = type as ContentType
   const file = (req as any).file as Express.Multer.File | undefined
@@ -142,15 +145,40 @@ router.post('/upload', requireAuth, upload.single('file'), validate(uploadSchema
     filePath = fileUrl(file.filename)
     fileSize = file.size
   }
+  if (t !== 'link' && !title) return error(res, 400, '标题不能为空')
   if ((t === 'image' || t === 'video') && !filePath)
     return error(res, 400, '图片/视频类型必须上传文件')
   if (t === 'text' && !content) return error(res, 400, '图文类型需要填写内容')
   if (t === 'link' && !url) return error(res, 400, '链接类型需要填写 URL')
 
-  // Generate a thumbnail for image/video uploads (best-effort, never blocks upload).
+  // --- media processing pipeline (all best-effort, never blocks the upload) ---
   let thumbPath: string | null = null
+  let compressedPath: string | null = null
+  let platform: string | null = null
+
   if (file && (t === 'image' || t === 'video')) {
+    // 1) thumbnail from the local original (must run before any S3 deletion)
     thumbPath = await generateThumbnail(file.filename).catch(() => null)
+  }
+  if (file && t === 'image') {
+    // 2) optional Tinify compression of the original
+    compressedPath = await compressImageWithTinify(file.filename).catch(() => null)
+  }
+  if (file && isObjectStorageEnabled()) {
+    // 3) optional push of the original to object storage (deletes local copy on success)
+    const s3 = await uploadToObjectStorage(file.filename, mimeForFile(file.filename)).catch(() => null)
+    if (s3) filePath = s3
+  }
+  if (t === 'link' && typeof url === 'string') {
+    // auto-fill title / thumbnail / platform from the external page's OG metadata
+    const preview = await fetchLinkPreview(url).catch(() => null)
+    if (preview) {
+      if (!title) title = preview.title
+      if (!thumbPath && preview.image) thumbPath = preview.image
+      platform = preview.platform
+    }
+    // link 类型最终仍需一个标题（缺省回退到 URL）
+    if (!title) title = url
   }
 
   const id = createContent({
@@ -160,6 +188,8 @@ router.post('/upload', requireAuth, upload.single('file'), validate(uploadSchema
     filePath,
     fileSize,
     thumbPath,
+    compressedPath,
+    platform,
     url: typeof url === 'string' ? url : null,
     tags: parseTagsInput(req.body?.tags),
     userId: req.user!.uid,
@@ -169,16 +199,28 @@ router.post('/upload', requireAuth, upload.single('file'), validate(uploadSchema
 })
 
 // ---- upload image (auth, multipart) — generic image host used by rich text ----
-router.post('/upload-image', requireAuth, upload.single('file'), (req, res) => {
+router.post('/upload-image', requireAuth, upload.single('file'), async (req, res) => {
   const file = (req as any).file as Express.Multer.File | undefined
   if (!file) return error(res, 400, '未收到文件')
+
+  let imageUrl = fileUrl(file.filename)
+  // Object storage first (returns the CDN URL and removes the local copy);
+  // otherwise optionally serve a Tinify-compressed copy.
+  if (isObjectStorageEnabled()) {
+    const s3 = await uploadToObjectStorage(file.filename, mimeForFile(file.filename)).catch(() => null)
+    if (s3) imageUrl = s3
+  } else {
+    const compressed = await compressImageWithTinify(file.filename).catch(() => null)
+    if (compressed) imageUrl = compressed
+  }
+
   success(
     res,
     {
       id: Date.now(),
       filename: file.filename,
       file_size: file.size,
-      image_url: fileUrl(file.filename),
+      image_url: imageUrl,
       upload_time: new Date().toISOString(),
     },
     '上传成功',
@@ -208,12 +250,23 @@ router.put('/:id', requireAuth, upload.single('file'), validate(updateContentSch
   if (typeof req.body?.url === 'string') fields.url = req.body.url
   if (req.body?.tags !== undefined) fields.tags = parseTagsInput(req.body.tags)
   if (file) {
-    fields.filePath = fileUrl(file.filename)
-    fields.fileSize = file.size
-    // Regenerate thumbnail when the media file is replaced.
+    let fpath = fileUrl(file.filename)
+    // Regenerate thumbnail first (reads the local original, before any S3 deletion).
     if (row.type === 'image' || row.type === 'video') {
       fields.thumbPath = await generateThumbnail(file.filename).catch(() => null)
     }
+    if (isObjectStorageEnabled()) {
+      const s3 = await uploadToObjectStorage(file.filename, mimeForFile(file.filename)).catch(() => null)
+      if (s3) fpath = s3
+    } else if (row.type === 'image') {
+      const compressed = await compressImageWithTinify(file.filename).catch(() => null)
+      if (compressed) {
+        fpath = compressed
+        fields.compressedPath = compressed
+      }
+    }
+    fields.filePath = fpath
+    fields.fileSize = file.size
   }
   updateContent(id, fields)
   success(res, decorateContent(getContentRow(id)!), '更新成功')

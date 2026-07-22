@@ -54,7 +54,8 @@ export const initAdminSchema = z
 // ── Content ──
 export const uploadSchema = z
   .object({
-    title: z.string().min(1, '标题不能为空'),
+    // title 可选：link 类型缺省时由外部 OG 元数据自动补全；非 link 类型由路由强制要求非空
+    title: str.optional(),
     type: z.enum(CONTENT_TYPES),
     content: str.optional(),
     url: str.optional(),

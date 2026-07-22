@@ -47,6 +47,7 @@ xqecz-all/
 │   │   │   └── apikey.ts
 │   │   ├── middleware/      # auth / error / rateLimit
 │   │   ├── util/            # media / pagination / response / security / thumbnail
+│   │   │                   #        / compress (Tinify) / linkPreview (OG) / storage (S3 兼容)
 │   │   ├── validation/      # zod schemas + validate 中间件
 │   │   ├── seed.ts          # 演示数据初始化
 │   │   └── types.ts         # 全局类型
@@ -56,7 +57,8 @@ xqecz-all/
 ├── scripts/                # 部署 / 运维脚本（build / deploy / run / panel）
 ├── assets/                 # 静态资源（默认封面等）
 ├── Dockerfile              # Node 容器构建
-├── docker-compose.yml      # Node 容器部署（端口 9200 -> 3000）
+├── docker-compose.yml      # nginx 反代 + Node 容器部署（端口 8080 -> app:3000）
+├── docker/nginx.conf       # nginx 反向代理配置（含可选 HTTPS 块）
 └── .dockerignore
 ```
 
@@ -115,8 +117,9 @@ node server/dist/index.js
 docker compose build
 docker compose up -d
 ```
-- 访问: http://localhost:9200 （`${XQ_APP_PORT:-9200}:3000`）
-- 健康检查: http://localhost:9200/api/health
+- 访问: http://localhost:8080 （nginx 反代 -> `app:3000`，`${XQ_HTTP_PORT:-8080}:80`）
+- 健康检查: http://localhost:8080/api/health
+- `app` 服务仅对内网暴露，公网流量经 nginx 进入；启用 HTTPS 时取消 `docker/nginx.conf` 中 443 块并在 compose 放开 `XQ_HTTPS_PORT`。
 
 ## 配置说明
 
@@ -128,8 +131,25 @@ docker compose up -d
 | `DB_PATH` | `server/data/app.db` | SQLite 数据库文件路径 |
 | `JWT_SECRET` | `xqecz-concept-secret-change-me` | JWT 签名密钥（生产务必修改） |
 | `JWT_EXPIRES_IN` | `7d` | JWT 有效期 |
+| `TINIFY_API_KEY` | _(空)_ | 配置后对**图片原图**做 Tinify 压缩（`compressed_path` 优先于原图返回）；不配置则原图直出 |
+| `S3_ENDPOINT` | _(空)_ | 对象存储服务地址（COS/OSS/S3/MinIO/R2），path-style（不含 bucket） |
+| `S3_BUCKET` | _(空)_ | 存储桶名 |
+| `S3_REGION` | `auto` | 区域（如 `ap-shanghai`） |
+| `S3_ACCESS_KEY_ID` | _(空)_ | 访问密钥 ID |
+| `S3_SECRET_ACCESS_KEY` | _(空)_ | 访问密钥 Secret |
+| `S3_PUBLIC_URL` | _(空)_ | 可选：覆盖返回的公网 URL 前缀（CDN 域名） |
+| `S3_DELETE_LOCAL` | `true` | 上传成功后是否删除本地副本 |
 
-上传文件与缩略图位于 `server/uploads/`（原图）与 `server/uploads/thumbs/`（缩略图），由后端以 `/uploads` 静态托管。
+> 对象存储四项（`S3_ENDPOINT`/`S3_BUCKET`/`S3_ACCESS_KEY_ID`/`S3_SECRET_ACCESS_KEY`）**配齐才启用**，否则回落本地 `/uploads` 磁盘存储。
+
+### 可选进阶能力
+
+- **原图压缩 (Tinify)**：上传图片时若设置 `TINIFY_API_KEY`，自动压缩原图并写入 `compressed_path`，读取时优先生效。
+- **链接/外部视频元数据**：`link` 类型内容缺省标题/缩略图时，自动抓取目标页 Open Graph 元数据补全标题、封面图，并记录来源平台（`platform`，如 `bilibili`/`youtube`）。
+- **对象存储 (S3 兼容)**：配置后上传的原图自动推送至 COS/OSS/S3/MinIO/Cloudflare R2，返回 CDN 地址；本地磁盘作为兜底。
+- **反向代理**：`docker/nginx.conf` 在 Node 之前提供统一 HTTP 入口，便于加 HTTPS / 限流 / 缓存头。
+
+上传文件与缩略图位于 `server/uploads/`（原图）与 `server/uploads/thumbs/`（缩略图），由后端以 `/uploads` 静态托管（对象存储模式下原图改存远端，缩略图仍留本地）。
 
 ## API 文档
 

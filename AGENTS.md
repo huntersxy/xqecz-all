@@ -19,7 +19,7 @@ server/                 # Node.js + TypeScript 后端（当前后端实现）
     db/index.ts              # SQLite 连接、建表、所有数据访问函数
     routes/                  # 各业务路由（handler + service + repo 一体）
     middleware/              # auth / error / rateLimit
-    util/                    # media / pagination / response / security / thumbnail
+    util/                    # media / pagination / response / security / thumbnail / compress(Tinify) / linkPreview(OG) / storage(S3 兼容)
     validation/              # zod schemas + validate 中间件
     seed.ts  types.ts
   data/                      # SQLite 数据库文件（gitignore）
@@ -36,7 +36,8 @@ scripts/                     # 部署 / 运维脚本（build / deploy / run / pa
   xqecz.bat                  # Windows 一键部署菜单（调用 scripts/panel）
   panel/                     # Python 部署管理面板（FastAPI + CLI）
 assets/                      # 静态资源（默认封面等）
-Dockerfile  docker-compose.yml  .dockerignore   # Node 容器部署（端口 9200 -> 3000）
+Dockerfile  docker-compose.yml  .dockerignore   # Node 容器部署（nginx:8080 -> app:3000）
+docker/nginx.conf                              # nginx 反向代理（含可选 HTTPS 块）
 ```
 
 ## Rust 源码参考
@@ -76,7 +77,7 @@ cd frontend && npm run dev          # 开发服务器
 
 # Docker
 docker compose build                # 多阶段构建（前端 + Node 后端）
-docker compose up -d                # 生产部署（端口 9200 -> 3000）
+docker compose up -d                # 生产部署（nginx:8080 反代 -> app:3000）
 ```
 
 ## 架构分层规则
@@ -214,14 +215,23 @@ docker compose up -d                # 生产部署（端口 9200 -> 3000）
 
 - `docker-compose.yml` 构建 Node 后端 + Vue 前端（多阶段），无 MySQL / Redis：
   - `docker compose build` — 多阶段构建
-  - `docker compose up -d` — 生产部署（端口 `${XQ_APP_PORT:-9200}` → 容器 3000）
-- 健康检查: `http://localhost:3000/api/health`
-- 数据持久化: `./docker_data/uploads` 挂载到 `server/uploads`
+  - `docker compose up -d` — 生产部署（nginx 监听 `${XQ_HTTP_PORT:-8080}`:80 反代到 `app:3000`）
+- `app` 服务仅对内网暴露（`expose: 3000`），公网流量经 `nginx` 服务进入；启用 HTTPS 时取消 `docker/nginx.conf` 中 443 块并放开 compose 的 `XQ_HTTPS_PORT`
+- 健康检查: `http://localhost:8080/api/health`
+- 数据持久化: `./docker_data/uploads` 与 `./docker_data/data` 分别挂载到 `server/uploads`、`server/data`
 - 数据库为 SQLite 文件 `server/data/app.db`（容器内）
+
+## 可选进阶能力（env 门控，缺省不启用）
+
+- **原图压缩 (Tinify)**：设置 `TINIFY_API_KEY` 后，图片上传自动压缩原图并写入 `compressed_path`，读取时优先返回；未设置则原图直出。
+- **链接 / 外部视频元数据**：`link` 类型内容缺省标题/缩略图时，自动抓取目标页 OG 元数据补全标题、封面、来源平台（`platform`，如 bilibili/youtube）。
+- **对象存储 (S3 兼容)**：配齐 `S3_ENDPOINT`/`S3_BUCKET`/`S3_ACCESS_KEY_ID`/`S3_SECRET_ACCESS_KEY` 后，上传原图自动推送至 COS/OSS/S3/MinIO/Cloudflare R2 并返回 CDN 地址；失败回落本地磁盘。
 
 ## 已知约束
 
 - 后端使用 SQLite（better-sqlite3），单机部署；无 MySQL / Redis
+- 对象存储模式下缩略图仍存本地磁盘（原图走远端），如需全量上云需另行扩展
+- Tinify / 对象存储的线上行为依赖外部密钥，本地无密钥时自动降级，功能不受影响
 - 前端用 hash 路由，SEO 不适用
 - `server/uploads/`、`server/uploads/thumbs/`、`server/data/` 目录需可写
 - 视频缩略图依赖 `ffmpeg-static`（随依赖安装，无需系统 FFmpeg）

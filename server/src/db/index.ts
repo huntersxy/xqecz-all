@@ -160,6 +160,9 @@ function rowToUserBrief(row: UserRow): UserBrief {
 }
 
 function rowToContent(row: ContentRow, user: UserBrief | User): Content {
+  // Prefer the Tinify-compressed original for image content when present.
+  const imgUrl =
+    row.type === 'image' ? row.compressed_path || row.file_path || '' : ''
   return {
     id: row.id,
     title: row.title,
@@ -168,7 +171,9 @@ function rowToContent(row: ContentRow, user: UserBrief | User): Content {
     url: row.url || '',
     thumb: row.thumb_path || '',
     video: row.type === 'video' ? row.file_path || '' : '',
-    img: row.type === 'image' ? row.file_path || '' : '',
+    img: imgUrl,
+    compressed: row.compressed_path || undefined,
+    platform: (row.platform as Content['platform']) || undefined,
     file_size: row.file_size || 0,
     user: user as User,
     tags: parseTags(row.tags),
@@ -276,7 +281,9 @@ interface CreateContentInput {
   filePath?: string | null
   fileSize?: number
   thumbPath?: string | null
+  compressedPath?: string | null
   url?: string | null
+  platform?: string | null
   tags?: string[]
   userId: number
   auditStatus?: string
@@ -286,8 +293,8 @@ export function createContent(input: CreateContentInput): number {
   const t = now()
   const info = db
     .prepare(
-      `INSERT INTO contents (title, type, content, file_path, file_size, thumb_path, url, tags, user_id, audit_status, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO contents (title, type, content, file_path, file_size, thumb_path, compressed_path, url, platform, tags, user_id, audit_status, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       input.title,
@@ -296,7 +303,9 @@ export function createContent(input: CreateContentInput): number {
       input.filePath ?? null,
       input.fileSize || 0,
       input.thumbPath ?? null,
+      input.compressedPath ?? null,
       input.url ?? null,
+      input.platform ?? null,
       JSON.stringify(input.tags || []),
       input.userId,
       input.auditStatus || 'approved',
@@ -325,6 +334,8 @@ export function updateContent(
     filePath?: string | null
     fileSize?: number
     thumbPath?: string | null
+    compressedPath?: string | null
+    platform?: string | null
     tags?: string[]
   },
 ): void {
@@ -353,6 +364,14 @@ export function updateContent(
   if (fields.thumbPath !== undefined) {
     sets.push('thumb_path = ?')
     params.push(fields.thumbPath)
+  }
+  if (fields.compressedPath !== undefined) {
+    sets.push('compressed_path = ?')
+    params.push(fields.compressedPath)
+  }
+  if (fields.platform !== undefined) {
+    sets.push('platform = ?')
+    params.push(fields.platform)
   }
   if (fields.tags !== undefined) {
     sets.push('tags = ?')
