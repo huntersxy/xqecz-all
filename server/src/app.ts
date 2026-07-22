@@ -46,6 +46,31 @@ export function createApp(): express.Express {
   app.use('/api/admin', adminRouter)
   app.use('/api/api-keys', apiKeyRouter)
 
+  // API 文档（Swagger UI，经 CDN 加载）。必须注册在前端静态/SPA 兜底之前，
+  // 否则 /docs 会被 SPA fallback 当成前端路由处理。
+  const openapiPath = resolve(__dirname, '..', 'docs', 'openapi.json')
+  if (existsSync(openapiPath)) {
+    const swaggerHTML = `<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>xqecz API 文档</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui.css" />
+  </head>
+  <body>
+    <div id="swagger-ui"></div>
+    <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+    <script>
+      window.onload = () => {
+        window.ui = SwaggerUIBundle({ url: '/docs/openapi.json', dom_id: '#swagger-ui', deepLinking: true })
+      }
+    </script>
+  </body>
+</html>`
+    app.get('/docs/openapi.json', (_req, res) => res.sendFile(openapiPath))
+    app.get('/docs', (_req, res) => res.type('html').send(swaggerHTML))
+  }
+
   // Built frontend (production). In dev the Vite server serves the UI and proxies /api here.
   // Mounted unconditionally so the dist can be built after the server starts.
   app.use(express.static(DIST_DIR))
