@@ -1,0 +1,38 @@
+name: Bump frontend submodule
+
+# 定时将 frontend submodule 跟随到 xqecz_frontend 的 dev 分支最新提交，
+# 实现“前端更新 → 后端自动跟上”的统一控制。
+on:
+  schedule:
+    - cron: '0 3 * * *'   # 每天 UTC 03:00 检查一次
+  workflow_dispatch:      # 也支持手动触发
+
+permissions:
+  contents: write
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (master)
+        uses: actions/checkout@v4
+        with:
+          ref: master
+          submodules: false
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git
+        run: |
+          git config user.name "huntersxy"
+          git config user.email "1833505972@qq.com"
+
+      - name: Update frontend submodule to latest dev
+        run: |
+          git submodule update --init --remote frontend
+          if git diff --quiet frontend; then
+            echo "frontend submodule 已是最新，无需提交"
+            exit 0
+          fi
+          git add frontend
+          git commit -m "chore: bump frontend submodule to latest dev"
+          git push
