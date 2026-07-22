@@ -26,10 +26,9 @@ COPY --from=backend-builder /app/server/node_modules ./server/node_modules
 COPY --from=backend-builder /app/server/package.json ./server/package.json
 # 前端产物（由后端同源托管）
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
-# 运行时目录（SQLite 数据库 + 上传文件）
-RUN mkdir -p /app/server/data /app/server/uploads /app/server/uploads/thumbs
+# 运行时目录（上传文件）
+RUN mkdir -p /app/server/uploads /app/server/uploads/thumbs
 ENV PORT=3000 \
-    DB_PATH=/app/server/data/app.db \
     TZ=Asia/Shanghai
 EXPOSE 3000
 CMD ["node", "server/dist/index.js"]

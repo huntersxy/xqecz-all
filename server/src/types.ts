@@ -1,4 +1,4 @@
-// Shared TypeScript types for the Node full-stack concept server.
+// Shared TypeScript types for the Node full-stack server.
 // Kept consistent with frontend/src/types (the API contract source of truth).
 
 export type ContentType = 'video' | 'image' | 'text' | 'link'
@@ -28,9 +28,7 @@ export interface Content {
   thumb?: string
   video?: string
   img?: string
-  /** Tinify-compressed original URL (image type only), when available. */
   compressed?: string
-  /** Source platform detected for link/external-video content (bilibili/youtube/...). */
   platform?: string
   file_size?: number
   user: User
@@ -116,7 +114,7 @@ export interface ApiKey {
   key_prefix: string
   permissions: string[]
   is_active: boolean
-  last_used_at: number | null
+  last_used_at: string | null
   created_at: number
 }
 
@@ -124,15 +122,15 @@ export interface ApiKeyCreated extends ApiKey {
   key: string
 }
 
-// Raw DB row shapes
+// Raw DB row shapes (MySQL DATETIME fields are strings)
 export interface UserRow {
   id: number
   username: string
   password: string
   is_admin: number
   is_banned: number
-  created_at: number
-  updated_at: number
+  created_at: string
+  updated_at: string
 }
 
 export interface ContentRow {
@@ -150,7 +148,7 @@ export interface ContentRow {
   user_id: number
   tags: string
   audit_status: string
-  created_at: number
-  updated_at: number
-  deleted_at: number | null
+  created_at: string
+  updated_at: string
+  deleted_at: string | null
 }

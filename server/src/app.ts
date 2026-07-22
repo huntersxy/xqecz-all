@@ -12,7 +12,7 @@ import commentRouter from './routes/comment.js'
 import pollRouter from './routes/poll.js'
 import adminRouter from './routes/admin.js'
 import apiKeyRouter from './routes/apikey.js'
-import { errorHandler, notFound } from './middleware/error.js'
+import { errorHandler, notFound } from './middleware/index.js'
 import { UPLOAD_DIR } from './util/media.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -25,11 +25,7 @@ export function createApp(): express.Express {
   app.use(express.json({ limit: '10mb' }))
   app.use(express.urlencoded({ extended: true, limit: '10mb' }))
 
-  // Security headers. CSP is intentionally disabled: the built Vue SPA loads
-  // same-origin ES module scripts (and may rely on inline styles), and a strict
-  // default-src would risk breaking the bundle. Other helmet headers stay on.
   app.use(helmet({ contentSecurityPolicy: false }))
-  // Gzip compress responses.
   app.use(compression())
 
   // Media: originals at /uploads, thumbnails at /uploads/thumbs (subdir of UPLOAD_DIR).
@@ -46,8 +42,7 @@ export function createApp(): express.Express {
   app.use('/api/admin', adminRouter)
   app.use('/api/api-keys', apiKeyRouter)
 
-  // API 文档（Swagger UI，经 CDN 加载）。必须注册在前端静态/SPA 兜底之前，
-  // 否则 /docs 会被 SPA fallback 当成前端路由处理。
+  // API docs (Swagger UI via CDN)
   const openapiPath = resolve(__dirname, '..', 'docs', 'openapi.json')
   if (existsSync(openapiPath)) {
     const swaggerHTML = `<!DOCTYPE html>
@@ -71,8 +66,7 @@ export function createApp(): express.Express {
     app.get('/docs', (_req, res) => res.type('html').send(swaggerHTML))
   }
 
-  // Built frontend (production). In dev the Vite server serves the UI and proxies /api here.
-  // Mounted unconditionally so the dist can be built after the server starts.
+  // Built frontend (production).
   app.use(express.static(DIST_DIR))
 
   // SPA fallback for client-side routes + JSON 404 for unmatched API calls.

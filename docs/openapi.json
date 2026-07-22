@@ -1,8 +1,8 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "xqecz API（Node 后端）",
-    "description": "小泉动漫二创站后端接口。Node/Express 实现（与 Go 版同一契约，不含通知接口）。",
+    "title": "xqecz API",
+    "description": "小泉动漫二创站后端接口。",
     "version": "1.0.0"
   },
   "servers": [

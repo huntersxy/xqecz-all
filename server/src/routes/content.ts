@@ -12,11 +12,11 @@ import {
   recommendContents,
   softDeleteContent,
   updateContent,
-  db,
 } from '../db/index.js'
+import pool from '../db/mysql.js'
 import { parsePagination } from '../util/pagination.js'
 import { success, paginated, error } from '../util/response.js'
-import { requireAuth } from '../middleware/auth.js'
+import { requireAuth } from '../middleware/index.js'
 import { upload, fileUrl } from '../util/media.js'
 import { generateThumbnail } from '../util/thumbnail.js'
 import { compressImageWithTinify } from '../util/compress.js'
@@ -53,10 +53,10 @@ function ownOrAdmin(req: import('express').Request, authorId: number): boolean {
 }
 
 // ---- public list ----
-router.get('/list', (req, res) => {
+router.get('/list', async (req, res) => {
   const p = parsePagination(req.query.page, req.query.page_size, 20, 100)
   const { tag, type, audit_status, keyword } = req.query as Record<string, string>
-  const { rows, total } = listContents({
+  const { rows, total } = await listContents({
     offset: p.offset,
     limit: p.limit,
     tag,
@@ -66,71 +66,55 @@ router.get('/list', (req, res) => {
     sortBy: req.query.sort_by as string,
     order: req.query.order as string,
   })
-  paginated(
-    res,
-    rows.map((r) => decorateContent(r)),
-    total,
-    p.page,
-    p.pageSize,
-  )
+  const list = await Promise.all(rows.map((r) => decorateContent(r)))
+  paginated(res, list, total, p.page, p.pageSize)
 })
 
 // ---- search ----
-router.get('/search', (req, res) => {
+router.get('/search', async (req, res) => {
   const keyword = (req.query.keyword as string) || ''
   const p = parsePagination(req.query.page, req.query.page_size, 20, 100)
   if (!keyword.trim()) return paginated(res, [], 0, p.page, p.pageSize)
-  const { rows, total } = listContents({
+  const { rows, total } = await listContents({
     offset: p.offset,
     limit: p.limit,
     keyword,
     auditStatus: 'approved',
   })
-  paginated(
-    res,
-    rows.map((r) => decorateContent(r)),
-    total,
-    p.page,
-    p.pageSize,
-  )
+  const list = await Promise.all(rows.map((r) => decorateContent(r)))
+  paginated(res, list, total, p.page, p.pageSize)
 })
 
 // ---- recommend ----
-router.get('/recommend', (req, res) => {
+router.get('/recommend', async (req, res) => {
   const count = Math.max(1, Math.min(Number(req.query.count) || 20, 100))
   const page = Math.max(1, Number(req.query.page) || 1)
-  const rows = recommendContents(count, page)
-  const totalRow = db
-    .prepare("SELECT COUNT(*) AS c FROM contents WHERE deleted_at IS NULL AND audit_status = 'approved'")
-    .get() as { c: number }
-  success(res, {
-    list: rows.map((r) => decorateRecommend(r)),
-    count: totalRow.c,
-  })
+  const rows = await recommendContents(count, page)
+  const [countRows] = await pool.execute(
+    "SELECT COUNT(*) AS c FROM contents WHERE deleted_at IS NULL AND audit_status = 'approved'",
+  )
+  const totalRow = (countRows as any[])[0]
+  const list = await Promise.all(rows.map((r) => decorateRecommend(r)))
+  success(res, { list, count: totalRow.c })
 })
 
 // ---- all tags ----
-router.get('/tags', (_req, res) => {
-  success(res, getAllTags())
+router.get('/tags', async (_req, res) => {
+  success(res, await getAllTags())
 })
 
 // ---- my content (auth) ----
-router.get('/my', requireAuth, (req, res) => {
+router.get('/my', requireAuth, async (req, res) => {
   const p = parsePagination(req.query.page, req.query.page_size, 20, 100)
-  const { rows, total } = listContents({
+  const { rows, total } = await listContents({
     offset: p.offset,
     limit: p.limit,
     userId: req.user!.uid,
     auditStatus: (req.query.audit_status as string) || undefined,
     type: VALID_TYPES.includes(req.query.type as ContentType) ? (req.query.type as string) : undefined,
   })
-  paginated(
-    res,
-    rows.map((r) => decorateContent(r)),
-    total,
-    p.page,
-    p.pageSize,
-  )
+  const list = await Promise.all(rows.map((r) => decorateContent(r)))
+  paginated(res, list, total, p.page, p.pageSize)
 })
 
 // ---- upload (auth, multipart) ----
@@ -151,37 +135,31 @@ router.post('/upload', requireAuth, upload.single('file'), validate(uploadSchema
   if (t === 'text' && !content) return error(res, 400, '图文类型需要填写内容')
   if (t === 'link' && !url) return error(res, 400, '链接类型需要填写 URL')
 
-  // --- media processing pipeline (all best-effort, never blocks the upload) ---
   let thumbPath: string | null = null
   let compressedPath: string | null = null
   let platform: string | null = null
 
   if (file && (t === 'image' || t === 'video')) {
-    // 1) thumbnail from the local original (must run before any S3 deletion)
     thumbPath = await generateThumbnail(file.filename).catch(() => null)
   }
   if (file && t === 'image') {
-    // 2) optional Tinify compression of the original
     compressedPath = await compressImageWithTinify(file.filename).catch(() => null)
   }
   if (file && isObjectStorageEnabled()) {
-    // 3) optional push of the original to object storage (deletes local copy on success)
     const s3 = await uploadToObjectStorage(file.filename, mimeForFile(file.filename)).catch(() => null)
     if (s3) filePath = s3
   }
   if (t === 'link' && typeof url === 'string') {
-    // auto-fill title / thumbnail / platform from the external page's OG metadata
     const preview = await fetchLinkPreview(url).catch(() => null)
     if (preview) {
       if (!title) title = preview.title
       if (!thumbPath && preview.image) thumbPath = preview.image
       platform = preview.platform
     }
-    // link 类型最终仍需一个标题（缺省回退到 URL）
     if (!title) title = url
   }
 
-  const id = createContent({
+  const id = await createContent({
     title,
     type: t,
     content: typeof content === 'string' ? content : '',
@@ -195,17 +173,16 @@ router.post('/upload', requireAuth, upload.single('file'), validate(uploadSchema
     userId: req.user!.uid,
     auditStatus: 'approved',
   })
-  success(res, decorateContent(getContentRow(id)!), '上传成功', 201)
+  const row = await getContentRow(id)
+  success(res, await decorateContent(row!), '上传成功', 201)
 })
 
-// ---- upload image (auth, multipart) — generic image host used by rich text ----
+// ---- upload image (auth, multipart) ----
 router.post('/upload-image', requireAuth, upload.single('file'), async (req, res) => {
   const file = (req as any).file as Express.Multer.File | undefined
   if (!file) return error(res, 400, '未收到文件')
 
   let imageUrl = fileUrl(file.filename)
-  // Object storage first (returns the CDN URL and removes the local copy);
-  // otherwise optionally serve a Tinify-compressed copy.
   if (isObjectStorageEnabled()) {
     const s3 = await uploadToObjectStorage(file.filename, mimeForFile(file.filename)).catch(() => null)
     if (s3) imageUrl = s3
@@ -229,18 +206,19 @@ router.post('/upload-image', requireAuth, upload.single('file'), async (req, res
 })
 
 // ---- detail ----
-router.get('/:id', (req, res) => {
+router.get('/:id', async (req, res) => {
   const id = Number(req.params.id)
-  if (!contentExists(id)) return error(res, 404, '内容不存在')
+  if (!(await contentExists(id))) return error(res, 404, '内容不存在')
   const silent = req.query.silent === '1'
-  if (!silent) incrementView(id)
-  success(res, decorateContent(getContentRow(id)!))
+  if (!silent) await incrementView(id)
+  const row = await getContentRow(id)
+  success(res, await decorateContent(row!))
 })
 
 // ---- update (auth) ----
 router.put('/:id', requireAuth, upload.single('file'), validate(updateContentSchema), async (req, res) => {
   const id = Number(req.params.id)
-  const row = getContentRow(id)
+  const row = await getContentRow(id)
   if (!row) return error(res, 404, '内容不存在')
   if (!ownOrAdmin(req, row.user_id)) return error(res, 403, '无权修改该内容')
   const file = (req as any).file as Express.Multer.File | undefined
@@ -251,7 +229,6 @@ router.put('/:id', requireAuth, upload.single('file'), validate(updateContentSch
   if (req.body?.tags !== undefined) fields.tags = parseTagsInput(req.body.tags)
   if (file) {
     let fpath = fileUrl(file.filename)
-    // Regenerate thumbnail first (reads the local original, before any S3 deletion).
     if (row.type === 'image' || row.type === 'video') {
       fields.thumbPath = await generateThumbnail(file.filename).catch(() => null)
     }
@@ -268,26 +245,27 @@ router.put('/:id', requireAuth, upload.single('file'), validate(updateContentSch
     fields.filePath = fpath
     fields.fileSize = file.size
   }
-  updateContent(id, fields)
-  success(res, decorateContent(getContentRow(id)!), '更新成功')
+  await updateContent(id, fields)
+  const updated = await getContentRow(id)
+  success(res, await decorateContent(updated!), '更新成功')
 })
 
 // ---- delete (auth, soft) ----
-router.delete('/:id', requireAuth, (req, res) => {
+router.delete('/:id', requireAuth, async (req, res) => {
   const id = Number(req.params.id)
-  const row = getContentRow(id)
+  const row = await getContentRow(id)
   if (!row) return error(res, 404, '内容不存在')
   if (!ownOrAdmin(req, row.user_id)) return error(res, 403, '无权删除该内容')
-  softDeleteContent(id)
+  await softDeleteContent(id)
   success(res, null, '已删除')
 })
 
 // ---- claim (auth) ----
-router.post('/:content_id/claim', requireAuth, validate(claimSchema), (req, res) => {
+router.post('/:content_id/claim', requireAuth, validate(claimSchema), async (req, res) => {
   const contentId = Number(req.params.content_id)
-  if (!contentExists(contentId)) return error(res, 404, '内容不存在')
+  if (!(await contentExists(contentId))) return error(res, 404, '内容不存在')
   const reason = typeof req.body.reason === 'string' ? req.body.reason : ''
-  const id = createClaim({ contentId, userId: req.user!.uid, reason })
+  const id = await createClaim({ contentId, userId: req.user!.uid, reason })
   success(res, { id }, '认领申请已提交')
 })
 

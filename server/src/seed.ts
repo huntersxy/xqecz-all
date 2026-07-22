@@ -4,20 +4,19 @@ import {
   createContent,
   createPoll,
   createComment,
-  getUserByUsername,
 } from './db/index.js'
 import { hashPassword } from './util/security.js'
 
 // Seed a usable demo environment the first time the server boots with an empty DB.
 export async function seedDemo(): Promise<void> {
-  if (countUsers() > 0) return
+  if ((await countUsers()) > 0) return
 
   const [adminHash, demoHash] = await Promise.all([
     hashPassword('admin123'),
     hashPassword('demo123'),
   ])
-  const adminId = createUser('admin', adminHash, true)
-  const demoId = createUser('demo', demoHash, false)
+  const adminId = await createUser('admin', adminHash, true)
+  const demoId = await createUser('demo', demoHash, false)
 
   const samples: Array<{
     title: string
@@ -27,11 +26,11 @@ export async function seedDemo(): Promise<void> {
     tags: string[]
   }> = [
     {
-      title: '欢迎来到小泉动漫二创站（Node 概念版）',
+      title: '欢迎来到小泉动漫二创站（Node 版）',
       type: 'text',
       content:
-        '这是一个使用 Node.js + TypeScript + Express + Vue 3 实现的前后端一体概念分支。所有接口与原有前端契约保持一致。',
-      tags: ['公告', '概念版'],
+        '这是一个使用 Node.js + TypeScript + Express + Vue 3 实现的全栈版本。后端使用 MySQL + Redis，与 Go 版共享同一份数据和登录态。',
+      tags: ['公告'],
     },
     {
       title: '二次创作投稿指南',
@@ -50,7 +49,7 @@ export async function seedDemo(): Promise<void> {
   const contentIds: number[] = []
   for (const s of samples) {
     contentIds.push(
-      createContent({
+      await createContent({
         title: s.title,
         type: s.type,
         content: s.content,
@@ -63,7 +62,7 @@ export async function seedDemo(): Promise<void> {
   }
 
   // A sample poll.
-  createPoll({
+  await createPoll({
     title: '你最喜欢哪种二创形式？',
     description: '投票看看大家的偏好',
     options: ['同人图', '剪辑视频', '同人文', 'MAD/AMV'],
@@ -71,7 +70,7 @@ export async function seedDemo(): Promise<void> {
   })
 
   // A sample comment.
-  createComment({ contentId: contentIds[0], userId: demoId, text: '概念版跑起来了，很丝滑！' })
+  await createComment({ contentId: contentIds[0], userId: demoId, text: 'Node 版跑起来了，很丝滑！' })
 
   console.log('[seed] demo data created: admin/admin123, demo/demo123')
 }
