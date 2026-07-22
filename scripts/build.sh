@@ -17,6 +17,8 @@ echo "=== 拉取最新代码 ==="
 cd "$APP_DIR"
 git config pull.rebase false
 git pull
+# 同步前端 submodule（统一控制：前端源码在独立仓库 xqecz_frontend，跟踪 dev 分支）
+git submodule update --init --remote frontend
 echo "✓ 代码已更新"
 
 # ==================== 构建前端 ====================

@@ -71,10 +71,11 @@ xqecz-all/
 
 ### 本地开发
 
-1. **克隆项目**
+1. **克隆项目（含前端 submodule）**
 ```bash
-git clone https://github.com/huntersxy/xqecz-all.git
+git clone --recurse-submodules https://github.com/huntersxy/xqecz-all.git
 cd xqecz-all
+# 若已克隆未带 submodule，可手动初始化：git submodule update --init --remote frontend
 ```
 
 2. **启动后端（端口 3000）**
@@ -87,9 +88,8 @@ npm run dev        # tsx watch，热重载
 
 3. **启动前端（端口 5173，开发代理 /api -> :3000）**
 ```bash
-cd frontend
-npm install
-npm run dev
+# 前端源码来自 git submodule xqecz_frontend，开发代理目标由脚本注入（VITE_PROXY_TARGET=http://localhost:3000）
+bash scripts/dev-frontend.sh
 ```
 
 4. **访问应用**
