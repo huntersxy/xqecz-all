@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"xqecz-all/internal/config"
+	"xqecz-all/internal/docs"
 	"xqecz-all/internal/handler"
 	"xqecz-all/internal/middleware"
 	"xqecz-all/internal/util"
@@ -296,6 +297,9 @@ func runServer() {
 		apiKey.Put("/:id", apiKeyHandler.UpdateApiKey)
 		apiKey.Delete("/:id", apiKeyHandler.DeleteApiKey)
 	}
+
+	// 接口文档（Swagger UI）：GET /api/docs、GET /api/docs/openapi.json
+	docs.Register(appInstance)
 
 	// 启动后台任务
 	startSchedulers(db)
