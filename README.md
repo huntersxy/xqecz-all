@@ -38,7 +38,7 @@ xqecz-all/
 │   ├── model/           # 数据模型
 │   ├── dto/             # 请求/响应结构
 │   └── util/            # 工具函数
-├── frontend/            # 前端代码
+├── frontend/            # 前端代码（git submodule: xqecz_frontend，跟踪 dev 分支）
 ├── config/              # 配置文件
 ├── docker/              # Docker配置
 └── assets/              # 静态资源
@@ -55,10 +55,11 @@ xqecz-all/
 
 ### 本地开发
 
-1. **克隆项目**
+1. **克隆项目（含前端 submodule）**
 ```bash
-git clone https://github.com/huntersxy/xqecz-all.git
+git clone --recurse-submodules https://github.com/huntersxy/xqecz-all.git
 cd xqecz-all
+# 若已克隆未带 submodule：git submodule update --init --remote frontend
 ```
 
 2. **配置数据库**
@@ -75,11 +76,12 @@ vim config/config.yaml
 go run ./cmd/server/
 ```
 
-4. **启动前端**
+4. **启动前端**（源码来自 git submodule `xqecz_frontend`，开发代理 /api 等默认指向 Go 后端 8080）
 ```bash
 cd frontend
 npm install
 npm run dev
+# 如需改代理目标：VITE_PROXY_TARGET=http://localhost:8080 npm run dev
 ```
 
 5. **访问应用**

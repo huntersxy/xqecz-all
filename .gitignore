@@ -26,10 +26,7 @@ go.work
 .DS_Store
 Thumbs.db
 
-# Node
-frontend/node_modules/
-frontend/dist/
-frontend/.vite/
+# Node（前端已作为 git submodule 引入，node_modules/dist/.vite 由其自身 .gitignore 管理）
 
 # Docker
 docker_data/
